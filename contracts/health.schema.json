@@ -1,0 +1,99 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/contracts/health.schema.json",
+  "title": "Week 1 Health Contracts",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/serviceHealth"
+    },
+    {
+      "$ref": "#/$defs/gatewayAggregateHealth"
+    }
+  ],
+  "$defs": {
+    "healthStatus": {
+      "type": "string",
+      "enum": ["ok", "degraded", "down"]
+    },
+    "dependencyStatus": {
+      "type": "string",
+      "enum": ["ok", "degraded", "down", "not_checked", "not_applicable"]
+    },
+    "dependencies": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/dependencyStatus"
+      }
+    },
+    "serviceHealth": {
+      "type": "object",
+      "required": ["status", "service", "version", "timestamp"],
+      "additionalProperties": true,
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/healthStatus"
+        },
+        "service": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "dependencies": {
+          "$ref": "#/$defs/dependencies"
+        }
+      }
+    },
+    "aggregatedService": {
+      "type": "object",
+      "required": ["name", "url", "status", "latencyMs"],
+      "additionalProperties": true,
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "status": {
+          "$ref": "#/$defs/healthStatus"
+        },
+        "latencyMs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "error": {
+          "type": "string"
+        }
+      }
+    },
+    "gatewayAggregateHealth": {
+      "type": "object",
+      "required": ["status", "timestamp", "services"],
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/healthStatus"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "services": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/aggregatedService"
+          }
+        }
+      }
+    }
+  }
+}

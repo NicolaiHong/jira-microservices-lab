@@ -1,0 +1,148 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: local-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-postgres}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: local-redis
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redpanda:
+    image: redpandadata/redpanda:v24.3.5
+    container_name: local-redpanda
+    command:
+      - redpanda
+      - start
+      - --smp
+      - "1"
+      - --memory
+      - 512M
+      - --reserve-memory
+      - 0M
+      - --overprovisioned
+      - --node-id
+      - "0"
+      - --check=false
+      - --kafka-addr
+      - internal://0.0.0.0:9092,external://0.0.0.0:19092
+      - --advertise-kafka-addr
+      - internal://redpanda:9092,external://localhost:${KAFKA_HOST_PORT:-9092}
+    ports:
+      - "${KAFKA_HOST_PORT:-9092}:19092"
+      - "9644:9644"
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster info --brokers=localhost:9092 >/dev/null 2>&1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+    restart: unless-stopped
+
+  api-gateway:
+    build:
+      context: ../../apps/api-gateway-nest
+    container_name: api-gateway
+    environment:
+      PORT: 3000
+      IAM_SERVICE_URL: http://iam-service:8081
+      PROJECT_SERVICE_URL: http://project-service:8082
+      ISSUE_SERVICE_URL: http://issue-service:8083
+      NOTIFICATION_SERVICE_URL: http://notification-service:8084
+      HEALTH_CHECK_TIMEOUT_MS: ${HEALTH_CHECK_TIMEOUT_MS:-1500}
+    ports:
+      - "${API_GATEWAY_PORT:-3000}:3000"
+    depends_on:
+      - iam-service
+      - project-service
+      - issue-service
+      - notification-service
+    restart: unless-stopped
+
+  iam-service:
+    build:
+      context: ../../apps/iam-service-java
+    container_name: iam-service
+    environment:
+      PORT: 8081
+      DATABASE_URL: jdbc:postgresql://postgres:5432/iam_db
+      DATABASE_USERNAME: ${POSTGRES_USER:-postgres}
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    ports:
+      - "${IAM_SERVICE_PORT:-8081}:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  project-service:
+    build:
+      context: ../../apps/project-service-dotnet
+    container_name: project-service
+    environment:
+      PORT: 8082
+      DATABASE_URL: Host=postgres;Port=5432;Database=project_db;Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-postgres}
+    ports:
+      - "${PROJECT_SERVICE_PORT:-8082}:8082"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  issue-service:
+    build:
+      context: ../../apps/issue-service-nest
+    container_name: issue-service
+    environment:
+      PORT: 8083
+      DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/issue_db
+      KAFKA_BROKERS: ${KAFKA_BROKERS:-redpanda:9092}
+    ports:
+      - "${ISSUE_SERVICE_PORT:-8083}:8083"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+    restart: unless-stopped
+
+  notification-service:
+    build:
+      context: ../../apps/notification-service-go
+    container_name: notification-service
+    environment:
+      PORT: 8084
+      REDIS_URL: redis://redis:6379
+      KAFKA_BROKERS: ${KAFKA_BROKERS:-redpanda:9092}
+    ports:
+      - "${NOTIFICATION_SERVICE_PORT:-8084}:8084"
+    depends_on:
+      redis:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres-data:

@@ -1,0 +1,4 @@
+CREATE DATABASE iam_db;
+CREATE DATABASE project_db;
+CREATE DATABASE issue_db;
+CREATE DATABASE notification_db;
