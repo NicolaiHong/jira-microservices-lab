@@ -5,9 +5,31 @@ server:
 spring:
   application:
     name: iam-service
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/iam_db}
+    username: ${DATABASE_USERNAME:postgres}
+    password: ${DATABASE_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+  flyway:
+    enabled: true
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
 
 app:
   datasource:
     url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/iam_db}
     username: ${DATABASE_USERNAME:postgres}
     password: ${DATABASE_PASSWORD:postgres}
+
+auth:
+  jwt:
+    secret: ${JWT_SECRET:local-week2-jwt-secret-change-me-32-bytes-minimum}
+    access-token-ttl-minutes: ${JWT_ACCESS_TOKEN_TTL_MINUTES:60}
+  refresh-token:
+    ttl-days: ${REFRESH_TOKEN_TTL_DAYS:30}

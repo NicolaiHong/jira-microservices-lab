@@ -71,13 +71,21 @@ services:
       ISSUE_SERVICE_URL: http://issue-service:8083
       NOTIFICATION_SERVICE_URL: http://notification-service:8084
       HEALTH_CHECK_TIMEOUT_MS: ${HEALTH_CHECK_TIMEOUT_MS:-1500}
+      JWT_SECRET: ${JWT_SECRET:-local-week2-jwt-secret-change-me-32-bytes-minimum}
+      REDIS_URL: redis://redis:6379
     ports:
       - "${API_GATEWAY_PORT:-3000}:3000"
     depends_on:
-      - iam-service
-      - project-service
-      - issue-service
-      - notification-service
+      iam-service:
+        condition: service_started
+      project-service:
+        condition: service_started
+      issue-service:
+        condition: service_started
+      notification-service:
+        condition: service_started
+      redis:
+        condition: service_healthy
     restart: unless-stopped
 
   iam-service:
@@ -89,6 +97,9 @@ services:
       DATABASE_URL: jdbc:postgresql://postgres:5432/iam_db
       DATABASE_USERNAME: ${POSTGRES_USER:-postgres}
       DATABASE_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      JWT_SECRET: ${JWT_SECRET:-local-week2-jwt-secret-change-me-32-bytes-minimum}
+      JWT_ACCESS_TOKEN_TTL_MINUTES: ${JWT_ACCESS_TOKEN_TTL_MINUTES:-60}
+      REFRESH_TOKEN_TTL_DAYS: ${REFRESH_TOKEN_TTL_DAYS:-30}
     ports:
       - "${IAM_SERVICE_PORT:-8081}:8081"
     depends_on:
