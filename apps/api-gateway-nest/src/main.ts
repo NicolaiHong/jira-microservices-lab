@@ -5,6 +5,7 @@ import {
   NestFastifyApplication,
 } from '@nestjs/platform-fastify';
 import { AppModule } from './app.module';
+import { ApiExceptionFilter } from './common/errors/api-exception.filter';
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create<NestFastifyApplication>(
@@ -12,6 +13,8 @@ async function bootstrap(): Promise<void> {
     new FastifyAdapter(),
   );
   const port = Number(process.env.PORT ?? 3000);
+
+  app.useGlobalFilters(new ApiExceptionFilter());
 
   await app.listen(port, '0.0.0.0');
 }
