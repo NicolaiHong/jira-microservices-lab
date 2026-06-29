@@ -12,6 +12,15 @@ Month 1 goal: build a runnable vertical slice of a Jira-like microservices syste
 
 Out of scope for week 1: Google Login, JWT, Kubernetes, Elasticsearch, WebSocket, frontend, advanced CI/CD, and full permission modeling.
 
+## Week 3 Scope
+
+- Project Service owns `project_db` with `workspaces`, `workspace_members`, and `projects`.
+- Public clients use Gateway routes: `POST /api/workspaces`, `GET /api/workspaces`, and `POST /api/workspaces/{workspaceId}/projects`.
+- Gateway validates JWTs and forwards authenticated user context to Project Service.
+- Project Service creates OWNER membership with workspace creation and authorizes project creation for OWNER/ADMIN members.
+
+See [Week 3 Project Service Contract](docs/api/project-service-contract.md) for the API contract, schema, and smoke tests.
+
 ## Services
 
 | Service | Stack | Port | Health URL |
@@ -119,6 +128,14 @@ Project Service:
 ```bash
 cd apps/project-service-dotnet
 dotnet run
+```
+
+Apply Project Service EF migration outside Docker:
+
+```powershell
+cd apps/project-service-dotnet
+$env:DATABASE_URL = "Host=localhost;Port=5432;Database=project_db;Username=postgres;Password=postgres"
+dotnet ef database update
 ```
 
 Issue Service:
