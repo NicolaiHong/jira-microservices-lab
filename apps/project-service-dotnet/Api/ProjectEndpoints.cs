@@ -1,4 +1,6 @@
+using ProjectService.Api.Mappers;
 using ProjectService.Application;
+using ProjectService.Application.UseCases;
 
 namespace ProjectService.Api;
 
@@ -19,14 +21,15 @@ public static class ProjectEndpoints
     private static async Task<IResult> CreateWorkspaceAsync(
         CreateWorkspaceRequest? request,
         HttpContext httpContext,
-        ProjectApplicationService service,
+        CreateWorkspaceUseCase useCase,
         CancellationToken cancellationToken)
     {
         var authContext = AuthContext.FromHttpContext(httpContext);
-        var response = await service.CreateWorkspaceAsync(
-            request,
+        var result = await useCase.ExecuteAsync(
+            ProjectDtoMapper.ToCommand(request),
             authContext.UserId,
             cancellationToken);
+        var response = ProjectDtoMapper.ToResponse(result);
 
         return Results.Created(
             $"/internal/workspaces/{response.Workspace.Id}",
@@ -35,13 +38,14 @@ public static class ProjectEndpoints
 
     private static async Task<IResult> ListUserWorkspacesAsync(
         HttpContext httpContext,
-        ProjectApplicationService service,
+        ListUserWorkspacesUseCase useCase,
         CancellationToken cancellationToken)
     {
         var authContext = AuthContext.FromHttpContext(httpContext);
-        var response = await service.ListUserWorkspacesAsync(
+        var result = await useCase.ExecuteAsync(
             authContext.UserId,
             cancellationToken);
+        var response = ProjectDtoMapper.ToResponse(result);
 
         return Results.Ok(response);
     }
@@ -50,18 +54,19 @@ public static class ProjectEndpoints
         string workspaceId,
         CreateProjectRequest? request,
         HttpContext httpContext,
-        ProjectApplicationService service,
+        CreateProjectUseCase useCase,
         CancellationToken cancellationToken)
     {
         var parsedWorkspaceId = RequestValidation.ParseUuid(
             workspaceId,
             "workspaceId");
         var authContext = AuthContext.FromHttpContext(httpContext);
-        var response = await service.CreateProjectAsync(
+        var result = await useCase.ExecuteAsync(
             parsedWorkspaceId,
-            request,
+            ProjectDtoMapper.ToCommand(request),
             authContext.UserId,
             cancellationToken);
+        var response = ProjectDtoMapper.ToResponse(result);
 
         return Results.Created(
             $"/internal/workspaces/{response.Project.WorkspaceId}/projects/{response.Project.Id}",

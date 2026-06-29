@@ -1,3 +1,6 @@
+using ProjectService.Domain;
+using ProjectService.Domain.Exceptions;
+
 namespace ProjectService.Api;
 
 public sealed record AuthenticatedUserContext(Guid UserId);
@@ -11,8 +14,8 @@ public static class AuthContext
         var header = httpContext.Request.Headers[AuthenticatedUserIdHeader].FirstOrDefault();
         if (string.IsNullOrWhiteSpace(header) || !Guid.TryParse(header, out var userId))
         {
-            throw new ProjectApiException(
-                StatusCodes.Status401Unauthorized,
+            throw new DomainException(
+                401,
                 ProjectErrorCodes.AuthContextRequired,
                 "Authenticated user context is required");
         }
