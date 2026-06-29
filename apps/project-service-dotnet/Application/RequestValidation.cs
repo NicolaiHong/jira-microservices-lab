@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
-using ProjectService.Api;
+using ProjectService.Domain;
+using ProjectService.Domain.Exceptions;
 
 namespace ProjectService.Application;
 
@@ -89,11 +90,11 @@ public static partial class RequestValidation
         throw ValidationError(field, $"{field} must be a valid UUID");
     }
 
-    public static ProjectApiException ValidationError(
+    public static DomainException ValidationError(
         string field,
         string message) =>
         new(
-            StatusCodes.Status400BadRequest,
+            400,
             ProjectErrorCodes.ValidationError,
             "Request validation failed",
             new Dictionary<string, object?> { [field] = message });

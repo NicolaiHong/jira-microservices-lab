@@ -5,7 +5,7 @@ import {
   NestFastifyApplication,
 } from '@nestjs/platform-fastify';
 import { AppModule } from './app.module';
-import { ApiExceptionFilter } from './common/errors/api-exception.filter';
+import { ApiExceptionFilter } from './presentation/common/filters/api-exception.filter';
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create<NestFastifyApplication>(

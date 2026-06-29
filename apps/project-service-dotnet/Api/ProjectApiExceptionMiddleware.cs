@@ -1,3 +1,6 @@
+using ProjectService.Domain;
+using ProjectService.Domain.Exceptions;
+
 namespace ProjectService.Api;
 
 public static class ProjectApiExceptionMiddleware
@@ -11,7 +14,7 @@ public static class ProjectApiExceptionMiddleware
             {
                 await next(context);
             }
-            catch (ProjectApiException exception)
+            catch (DomainException exception)
             {
                 await WriteErrorAsync(
                     context,
