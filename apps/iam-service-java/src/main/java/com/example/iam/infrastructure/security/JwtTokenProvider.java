@@ -21,16 +21,22 @@ public class JwtTokenProvider implements TokenProvider {
     private final SecretKey signingKey;
     private final long accessTokenTtlMinutes;
     private final long refreshTokenTtlDays;
+    private final String issuer;
+    private final String audience;
     private final SecureRandom secureRandom = new SecureRandom();
 
     public JwtTokenProvider(
         @Value("${auth.jwt.secret}") String secret,
         @Value("${auth.jwt.access-token-ttl-minutes}") long accessTokenTtlMinutes,
-        @Value("${auth.refresh-token.ttl-days}") long refreshTokenTtlDays
+        @Value("${auth.refresh-token.ttl-days}") long refreshTokenTtlDays,
+        @Value("${auth.jwt.issuer}") String issuer,
+        @Value("${auth.jwt.audience}") String audience
     ) {
         this.signingKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
         this.accessTokenTtlMinutes = accessTokenTtlMinutes;
         this.refreshTokenTtlDays = refreshTokenTtlDays;
+        this.issuer = issuer;
+        this.audience = audience;
     }
 
     @Override
@@ -40,11 +46,13 @@ public class JwtTokenProvider implements TokenProvider {
 
         return Jwts.builder()
             .subject(user.getId().toString())
+            .issuer(issuer)
+            .audience().add(audience).and()
             .claim("email", user.getEmail())
             .claim("roles", user.sortedRoles())
             .issuedAt(Date.from(now))
             .expiration(Date.from(expiresAt))
-            .signWith(signingKey)
+            .signWith(signingKey, Jwts.SIG.HS256)
             .compact();
     }
 

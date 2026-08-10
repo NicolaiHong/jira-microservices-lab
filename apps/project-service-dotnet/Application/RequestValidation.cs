@@ -90,6 +90,31 @@ public static partial class RequestValidation
         throw ValidationError(field, $"{field} must be a valid UUID");
     }
 
+    public static Guid RequiredUuid(Guid? value, string field)
+    {
+        if (value is { } uuid && uuid != Guid.Empty)
+        {
+            return uuid;
+        }
+
+        throw ValidationError(field, $"{field} must be a valid UUID");
+    }
+
+    public static string NormalizeWorkspaceRole(string? value)
+    {
+        var role = RequiredString(value, "role", 30).ToUpperInvariant();
+        if (!WorkspaceRoles.IsValid(role))
+        {
+            throw new DomainException(
+                400,
+                ProjectErrorCodes.InvalidWorkspaceRole,
+                "Role must be OWNER, ADMIN, or MEMBER",
+                new Dictionary<string, object?> { ["role"] = "Unsupported workspace role" });
+        }
+
+        return role;
+    }
+
     public static DomainException ValidationError(
         string field,
         string message) =>

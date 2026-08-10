@@ -1,30 +1,56 @@
 import { http } from "@/lib/http";
+import type {
+  CreateIssuePayload,
+  Issue,
+  IssueComment,
+  IssueHistory,
+  IssueStatus,
+} from "./types";
 
-import type { CreateIssuePayload, Issue, ListIssuesParams } from "./types";
-
-/**
- * Lists issues through the API gateway. The issue service route is not wired in
- * this repo yet, so callers should render an error or empty placeholder.
- */
-export async function listIssues(
-  params: ListIssuesParams = {},
-): Promise<Issue[]> {
-  const { data } = await http.get<Issue[]>("/api/issues", { params });
-  return data;
+export async function listIssues(projectId: string): Promise<Issue[]> {
+  const { data } = await http.get<{ items: Issue[] }>(`/api/projects/${projectId}/issues`);
+  return data.items;
 }
 
-/**
- * Reads a single issue by id through the gateway.
- */
 export async function getIssue(issueId: string): Promise<Issue> {
-  const { data } = await http.get<Issue>(`/api/issues/${issueId}`);
-  return data;
+  const { data } = await http.get<{ issue: Issue }>(`/api/issues/${issueId}`);
+  return data.issue;
 }
 
-/**
- * Creates an issue through the gateway once the issue-service API is exposed.
- */
-export async function createIssue(payload: CreateIssuePayload): Promise<Issue> {
-  const { data } = await http.post<Issue>("/api/issues", payload);
-  return data;
+export async function createIssue(projectId: string, payload: CreateIssuePayload): Promise<Issue> {
+  const { data } = await http.post<{ issue: Issue }>(`/api/projects/${projectId}/issues`, payload);
+  return data.issue;
+}
+
+export async function transitionIssue(issueId: string, status: IssueStatus): Promise<Issue> {
+  const { data } = await http.post<{ issue: Issue }>(`/api/issues/${issueId}/transitions`, { status });
+  return data.issue;
+}
+
+export async function assignIssue(issueId: string, assigneeUserId: string | null): Promise<Issue> {
+  const { data } = await http.patch<{ issue: Issue }>(`/api/issues/${issueId}/assignee`, { assigneeUserId });
+  return data.issue;
+}
+
+export async function updateIssue(
+  issueId: string,
+  payload: Partial<Pick<Issue, "summary" | "description" | "type" | "priority">>,
+): Promise<Issue> {
+  const { data } = await http.patch<{ issue: Issue }>(`/api/issues/${issueId}`, payload);
+  return data.issue;
+}
+
+export async function listComments(issueId: string): Promise<IssueComment[]> {
+  const { data } = await http.get<{ items: IssueComment[] }>(`/api/issues/${issueId}/comments`);
+  return data.items;
+}
+
+export async function addComment(issueId: string, body: string): Promise<IssueComment> {
+  const { data } = await http.post<{ comment: IssueComment }>(`/api/issues/${issueId}/comments`, { body });
+  return data.comment;
+}
+
+export async function listHistory(issueId: string): Promise<IssueHistory[]> {
+  const { data } = await http.get<{ items: IssueHistory[] }>(`/api/issues/${issueId}/history`);
+  return data.items;
 }

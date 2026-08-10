@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jira-like.local/contracts/events/issue-event-v1.schema.json",
+  "title": "Issue Event Envelope v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "eventId",
+    "eventType",
+    "schemaVersion",
+    "aggregateId",
+    "aggregateVersion",
+    "projectId",
+    "actorUserId",
+    "occurredAt",
+    "payload"
+  ],
+  "properties": {
+    "eventId": { "type": "string", "format": "uuid" },
+    "eventType": {
+      "enum": [
+        "issue.created",
+        "issue.updated",
+        "issue.assigned",
+        "issue.transitioned",
+        "issue.commented"
+      ]
+    },
+    "schemaVersion": { "const": 1 },
+    "aggregateId": { "type": "string", "format": "uuid" },
+    "aggregateVersion": { "type": "integer", "minimum": 1 },
+    "projectId": { "type": "string", "format": "uuid" },
+    "actorUserId": { "type": "string", "format": "uuid" },
+    "occurredAt": { "type": "string", "format": "date-time" },
+    "payload": {
+      "type": "object",
+      "required": ["issueKey", "recipientUserIds"],
+      "properties": {
+        "issueKey": { "type": "string", "minLength": 1 },
+        "recipientUserIds": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "type": "string", "format": "uuid" }
+        }
+      },
+      "additionalProperties": true
+    }
+  }
+}

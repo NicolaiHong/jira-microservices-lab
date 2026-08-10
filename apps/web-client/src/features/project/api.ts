@@ -1,27 +1,46 @@
 import { http } from "@/lib/http";
+import type {
+  CreateProjectPayload,
+  CreateWorkspacePayload,
+  ListResponse,
+  Project,
+  Workspace,
+} from "./types";
 
-import type { CreateProjectPayload, Project } from "./types";
-
-/**
- * Lists project-context records through the API gateway. The current gateway
- * exposes the project service through workspace routes.
- */
-export async function listProjects(): Promise<Project[]> {
-  const { data } = await http.get<Project[]>("/api/workspaces");
-  return data;
+export async function listWorkspaces(): Promise<Workspace[]> {
+  const { data } = await http.get<ListResponse<Workspace>>("/api/workspaces");
+  return data.items;
 }
 
-/**
- * Creates a project inside a workspace via the gateway's project-service route.
- */
+export async function createWorkspace(
+  payload: CreateWorkspacePayload,
+): Promise<Workspace> {
+  const { data } = await http.post<{ workspace: Workspace }>(
+    "/api/workspaces",
+    payload,
+  );
+  return { ...data.workspace, role: "OWNER" };
+}
+
+export async function listProjects(workspaceId: string): Promise<Project[]> {
+  const { data } = await http.get<ListResponse<Project>>(
+    `/api/workspaces/${workspaceId}/projects`,
+  );
+  return data.items;
+}
+
 export async function createProject(
   workspaceId: string,
   payload: CreateProjectPayload,
 ): Promise<Project> {
-  const { data } = await http.post<Project>(
+  const { data } = await http.post<{ project: Project }>(
     `/api/workspaces/${workspaceId}/projects`,
     payload,
   );
+  return data.project;
+}
 
+export async function getProject(projectId: string): Promise<Project> {
+  const { data } = await http.get<Project>(`/api/projects/${projectId}`);
   return data;
 }

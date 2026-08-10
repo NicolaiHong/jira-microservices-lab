@@ -7,6 +7,7 @@ import jakarta.validation.ConstraintViolationException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
+import com.example.iam.presentation.common.CorrelationIdContext;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -106,6 +107,7 @@ public class ApiExceptionHandler {
         return switch (errorCode) {
             case ErrorCodes.EmailAlreadyExists -> HttpStatus.CONFLICT;
             case ErrorCodes.InvalidCredentials -> HttpStatus.UNAUTHORIZED;
+            case ErrorCodes.InvalidRefreshToken -> HttpStatus.UNAUTHORIZED;
             case ErrorCodes.UserBlocked -> HttpStatus.FORBIDDEN;
             default -> HttpStatus.BAD_REQUEST;
         };
@@ -124,11 +126,6 @@ public class ApiExceptionHandler {
     }
 
     private String correlationId(HttpServletRequest request) {
-        String value = request.getHeader("X-Correlation-Id");
-        if (value != null && !value.isBlank()) {
-            return value;
-        }
-
-        return "req_" + UUID.randomUUID().toString().replace("-", "");
+        return CorrelationIdContext.resolve(request);
     }
 }

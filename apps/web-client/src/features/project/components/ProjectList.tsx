@@ -17,9 +17,7 @@ export function ProjectList({ projects }: { projects: Project[] }) {
       <Card>
         <CardHeader>
           <CardTitle>No projects yet</CardTitle>
-          <CardDescription>
-            Project creation is intentionally left for the next feature pass.
-          </CardDescription>
+          <CardDescription>Create the first project in this workspace.</CardDescription>
         </CardHeader>
       </Card>
     );
@@ -39,8 +37,9 @@ export function ProjectList({ projects }: { projects: Project[] }) {
                 {project.description ?? "No project description yet."}
               </CardDescription>
             </CardHeader>
-            <CardContent className="text-sm text-muted-foreground">
-              {project.members.length} members
+            <CardContent className="flex items-center justify-between text-sm text-muted-foreground">
+              <span>{project.status}</span>
+              <span>Updated {new Date(project.updatedAt).toLocaleDateString()}</span>
             </CardContent>
           </Card>
         </Link>

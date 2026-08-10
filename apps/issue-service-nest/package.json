@@ -4,21 +4,27 @@
   "private": true,
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
+    "test": "node --test --require ts-node/register src/domain/issue.spec.ts",
     "start": "node dist/main.js",
     "start:dev": "ts-node src/main.ts"
   },
   "overrides": {
-    "multer": "^2.2.0"
+    "multer": "^2.2.0",
+    "find-my-way": "9.7.0",
+    "fast-uri": "3.1.5"
   },
   "dependencies": {
     "@nestjs/common": "^11.1.27",
     "@nestjs/core": "^11.1.27",
     "@nestjs/platform-fastify": "^11.1.27",
+    "kafkajs": "^2.2.4",
+    "pg": "^8.13.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
+    "@types/pg": "^8.11.10",
     "ts-node": "^10.9.2",
     "typescript": "^5.7.2"
   }

@@ -48,7 +48,7 @@ public final class LoginUseCase {
         String accessToken = tokenProvider.issueAccessToken(user);
         String refreshToken = tokenProvider.generateRefreshToken();
         refreshTokenRepository.save(
-            new RefreshToken(
+            RefreshToken.issue(
                 user.getId(),
                 tokenProvider.hashRefreshToken(refreshToken),
                 tokenProvider.refreshTokenExpiresAt()

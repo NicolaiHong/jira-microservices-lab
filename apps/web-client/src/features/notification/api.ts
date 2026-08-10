@@ -1,22 +1,15 @@
 import { http } from "@/lib/http";
-
 import type { Notification } from "./types";
 
-/**
- * Lists notifications through the gateway once the notification REST surface exists.
- */
 export async function listNotifications(): Promise<Notification[]> {
-  const { data } = await http.get<Notification[]>("/api/notifications");
-  return data;
+  const { data } = await http.get<{ items: Notification[] }>("/api/notifications");
+  return data.items;
 }
 
-/**
- * Marks a notification as read through the gateway.
- */
-export async function markNotificationRead(id: string): Promise<Notification> {
-  const { data } = await http.patch<Notification>(`/api/notifications/${id}`, {
-    read: true,
-  });
+export async function markNotificationRead(id: string): Promise<void> {
+  await http.patch(`/api/notifications/${id}/read`);
+}
 
-  return data;
+export async function markAllNotificationsRead(): Promise<void> {
+  await http.post("/api/notifications/read-all");
 }

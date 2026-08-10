@@ -53,6 +53,12 @@ namespace ProjectService.Infrastructure.Data.Migrations
                         .HasColumnType("character varying(120)")
                         .HasColumnName("name");
 
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("status");
+
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
@@ -77,7 +83,10 @@ namespace ProjectService.Infrastructure.Data.Migrations
                         .IsUnique()
                         .HasDatabaseName("ux_projects_workspace_id_name");
 
-                    b.ToTable("projects", (string)null);
+                    b.ToTable("projects", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_projects_status", "status IN ('ACTIVE', 'ARCHIVED')");
+                        });
                 });
 
             modelBuilder.Entity("ProjectService.Domain.Workspace", b =>

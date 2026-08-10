@@ -31,5 +31,7 @@ auth:
   jwt:
     secret: ${JWT_SECRET:local-week2-jwt-secret-change-me-32-bytes-minimum}
     access-token-ttl-minutes: ${JWT_ACCESS_TOKEN_TTL_MINUTES:60}
+    issuer: ${JWT_ISSUER:jira-like-iam}
+    audience: ${JWT_AUDIENCE:jira-like-api}
   refresh-token:
     ttl-days: ${REFRESH_TOKEN_TTL_DAYS:30}

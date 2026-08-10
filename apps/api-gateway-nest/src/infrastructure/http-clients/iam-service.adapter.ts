@@ -1,6 +1,5 @@
-import { Injectable } from '@nestjs/common';
-import { AppException } from '../../domain/errors/app.exception';
-import type { IIamServicePort } from '../../domain/ports/iam-service.port';
+import { Injectable, Logger } from '@nestjs/common';
+import { AppException } from '../../common/errors/app.exception';
 
 interface IamServiceResponse {
   code?: unknown;
@@ -9,7 +8,8 @@ interface IamServiceResponse {
 }
 
 @Injectable()
-export class IamServiceAdapter implements IIamServicePort {
+export class IamServiceAdapter {
+  private readonly logger = new Logger(IamServiceAdapter.name);
   private readonly iamServiceUrl = (
     process.env.IAM_SERVICE_URL ?? 'http://localhost:8081'
   ).replace(/\/+$/, '');
@@ -22,14 +22,28 @@ export class IamServiceAdapter implements IIamServicePort {
     return this.forwardToIam('login', body, correlationId);
   }
 
+  refresh(body: unknown, correlationId: string): Promise<unknown> {
+    return this.forwardToIam('refresh', body, correlationId);
+  }
+
+  logout(body: unknown, correlationId: string): Promise<unknown> {
+    return this.forwardToIam('logout', body, correlationId);
+  }
+
   private async forwardToIam(
-    path: 'register' | 'login',
+    path: 'register' | 'login' | 'refresh' | 'logout',
     body: unknown,
     correlationId: string,
   ): Promise<unknown> {
+    const controller = new AbortController();
+    const timeoutMs = Number(process.env.HTTP_CLIENT_TIMEOUT_MS ?? 3000);
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    const startedAt = Date.now();
+
     try {
       const response = await fetch(`${this.iamServiceUrl}/auth/${path}`, {
         method: 'POST',
+        signal: controller.signal,
         headers: {
           accept: 'application/json',
           'content-type': 'application/json',
@@ -38,6 +52,8 @@ export class IamServiceAdapter implements IIamServicePort {
         body: JSON.stringify(body ?? {}),
       });
       const responseBody = await this.parseJsonResponse(response);
+
+      this.logDownstream(path, correlationId, response.status, startedAt);
 
       if (!response.ok) {
         throw new AppException(
@@ -59,7 +75,27 @@ export class IamServiceAdapter implements IIamServicePort {
         'IAM_SERVICE_UNAVAILABLE',
         'IAM service is unavailable',
       );
+    } finally {
+      clearTimeout(timeout);
     }
+  }
+
+  private logDownstream(
+    path: string,
+    correlationId: string,
+    status: number,
+    startedAt: number,
+  ): void {
+    this.logger.log(
+      JSON.stringify({
+        service: 'api-gateway',
+        correlationId,
+        downstreamService: 'iam-service',
+        downstreamPath: `/auth/${path}`,
+        status,
+        durationMs: Date.now() - startedAt,
+      }),
+    );
   }
 
   private async parseJsonResponse(

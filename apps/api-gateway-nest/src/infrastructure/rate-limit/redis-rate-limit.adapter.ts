@@ -1,14 +1,15 @@
 import { Injectable, OnModuleDestroy } from '@nestjs/common';
 import Redis from 'ioredis';
-import type {
-  IRateLimiterPort,
-  RateLimitResult,
-} from '../../domain/ports/rate-limiter.port';
+interface RateLimitResult {
+  limited: boolean;
+  count: number;
+  limit: number;
+  ttlSeconds: number;
+  failOpen: boolean;
+}
 
 @Injectable()
-export class RedisRateLimitAdapter
-  implements IRateLimiterPort, OnModuleDestroy
-{
+export class RedisRateLimitAdapter implements OnModuleDestroy {
   private readonly redis: Redis;
 
   constructor() {

@@ -45,13 +45,64 @@ public static class ProjectDtoMapper
 
     public static CreateProjectResponse ToResponse(
         AppDtos.CreateProjectResult result) =>
+        new(ToResponse(result.Project));
+
+    public static ListProjectsResponse ToResponse(
+        AppDtos.ListProjectsResult result) =>
+        new(result.Items.Select(ToResponse).ToList());
+
+    public static UpdateProjectResponse ToResponse(
+        AppDtos.UpdateProjectResult result) =>
+        new(ToResponse(result.Project));
+
+    public static ProjectResponse ToResponse(AppDtos.ProjectResult result) =>
         new(
-            new ProjectResponse(
-                result.Project.Id,
-                result.Project.WorkspaceId,
-                result.Project.Name,
-                result.Project.Key,
-                result.Project.Description,
-                result.Project.CreatedByUserId,
-                result.Project.CreatedAt));
+            result.Id,
+            result.WorkspaceId,
+            result.Name,
+            result.Key,
+            result.Description,
+            result.Status,
+            result.CreatedByUserId,
+            result.CreatedAt,
+            result.UpdatedAt);
+
+    public static AppDtos.UpdateProjectCommand? ToCommand(
+        UpdateProjectRequest? request) =>
+        request is null
+            ? null
+            : new AppDtos.UpdateProjectCommand(request.Name, request.Description);
+
+    public static ProjectAccessContextResponse ToResponse(
+        AppDtos.ProjectAccessContextResult result) =>
+        new(
+            result.ProjectId,
+            result.WorkspaceId,
+            result.ProjectKey,
+            result.ProjectStatus,
+            result.MembershipRole);
+
+    public static AppDtos.AddWorkspaceMemberCommand? ToCommand(
+        AddWorkspaceMemberRequest? request) =>
+        request is null
+            ? null
+            : new AppDtos.AddWorkspaceMemberCommand(request.UserId, request.Role);
+
+    public static AppDtos.ChangeWorkspaceMemberRoleCommand? ToCommand(
+        ChangeWorkspaceMemberRoleRequest? request) =>
+        request is null
+            ? null
+            : new AppDtos.ChangeWorkspaceMemberRoleCommand(request.Role);
+
+    public static AddWorkspaceMemberResponse ToResponse(
+        AppDtos.AddWorkspaceMemberResult result) =>
+        new(ToResponse(result.Member));
+
+    public static ChangeWorkspaceMemberRoleResponse ToResponse(
+        AppDtos.ChangeWorkspaceMemberRoleResult result) =>
+        new(ToResponse(result.Member));
+
+    private static WorkspaceMemberResponse ToResponse(
+        AppDtos.WorkspaceMemberResult member) =>
+        new(member.UserId, member.Role, member.JoinedAt, member.UpdatedAt);
 }

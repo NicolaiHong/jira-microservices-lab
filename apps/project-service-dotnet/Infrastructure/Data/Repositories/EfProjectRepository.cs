@@ -9,6 +9,22 @@ namespace ProjectService.Infrastructure.Data.Repositories;
 public sealed class EfProjectRepository(ProjectDbContext dbContext)
     : IProjectRepository
 {
+    public Task<Project?> FindByIdAsync(
+        Guid projectId,
+        CancellationToken cancellationToken) =>
+        dbContext.Projects.FirstOrDefaultAsync(
+            project => project.Id == projectId,
+            cancellationToken);
+
+    public async Task<IReadOnlyList<Project>> ListByWorkspaceIdAsync(
+        Guid workspaceId,
+        CancellationToken cancellationToken) =>
+        await dbContext.Projects
+            .AsNoTracking()
+            .Where(project => project.WorkspaceId == workspaceId)
+            .OrderBy(project => project.Name)
+            .ToListAsync(cancellationToken);
+
     public Task<bool> AnyByKeyAsync(
         Guid workspaceId,
         string key,

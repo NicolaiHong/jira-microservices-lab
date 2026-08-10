@@ -1,171 +1,122 @@
 # Jira-like Polyglot Microservices MVP
 
-Month 1 goal: build a runnable vertical slice of a Jira-like microservices system. This is not a full Jira clone.
+A learning-oriented Jira-like vertical slice that demonstrates synchronous service calls, local database ownership, transactional Outbox, Kafka delivery, Redis-backed notifications, and a Next.js client that talks only to the API Gateway.
 
-## Week 1 Scope
+## Implemented Flow
 
-- Monorepo skeleton for five services.
-- Docker Compose local infrastructure: PostgreSQL, Redis, Redpanda.
-- `GET /health` on every service.
-- API Gateway health aggregation at `GET /health/services`.
-- Local run guide, health contract, and troubleshooting notes.
+```text
+Web Client (:3001)
+  -> API Gateway (:3000, JWT + rate limit + correlation ID)
+     -> IAM / Spring Boot (:8081, iam_db)
+     -> Project / ASP.NET Core (:8082, project_db)
+     -> Issue / NestJS (:8083, issue_db)
+          -> transactional Outbox -> Redpanda topic issue.events.v1
+                                      -> Notification / Go (:8084, Redis)
+```
 
-Out of scope for week 1: Google Login, JWT, Kubernetes, Elasticsearch, WebSocket, frontend, advanced CI/CD, and full permission modeling.
-
-## Week 3 Scope
-
-- Project Service owns `project_db` with `workspaces`, `workspace_members`, and `projects`.
-- Public clients use Gateway routes: `POST /api/workspaces`, `GET /api/workspaces`, and `POST /api/workspaces/{workspaceId}/projects`.
-- Gateway validates JWTs and forwards authenticated user context to Project Service.
-- Project Service creates OWNER membership with workspace creation and authorizes project creation for OWNER/ADMIN members.
-
-See [Week 3 Project Service Contract](docs/api/project-service-contract.md) for the API contract, schema, and smoke tests.
+The MVP supports register/login/refresh/logout/me, workspace membership, project lifecycle, issue create/edit/assignment/workflow/comments/history, and notification list/read operations. Private resources return not-found behavior to non-members. Project archive is soft-delete and blocks issue writes.
 
 ## Services
 
-| Service | Stack | Port | Health URL |
-| --- | --- | ---: | --- |
-| API Gateway | NestJS | 3000 | `http://localhost:3000/health` |
-| IAM Service | Spring Boot | 8081 | `http://localhost:8081/health` |
-| Project Service | ASP.NET Core Minimal API | 8082 | `http://localhost:8082/health` |
-| Issue Service | NestJS | 8083 | `http://localhost:8083/health` |
-| Notification Service | Go | 8084 | `http://localhost:8084/health` |
+| Service | Stack | Owned data | Port |
+| --- | --- | --- | ---: |
+| Web Client | Next.js 16 / React 19 | Browser session | 3001 |
+| API Gateway | NestJS | Redis rate limits | 3000 |
+| IAM Service | Spring Boot 3 / Java 17 | `iam_db` | 8081 |
+| Project Service | ASP.NET Core / .NET 9 | `project_db` | 8082 |
+| Issue Service | NestJS | `issue_db` + Outbox | 8083 |
+| Notification Service | Go | Redis inbox/dedup | 8084 |
 
-## Prerequisites
+PostgreSQL, Redis, and Redpanda run in Docker Compose. A service never reads another service's database; Issue checks project access through an internal HTTP contract.
 
-- Docker Desktop with Docker Compose v2.
-- Node.js 20+ if running NestJS services outside Docker.
-- Java 17+ and Maven if running IAM outside Docker.
-- .NET SDK 9 if running Project Service outside Docker.
-- Go 1.22+ if running Notification Service outside Docker.
-- `curl`, Postman, or Bruno for testing.
+## Start the Backend
 
-## Run With Docker Compose
+Prerequisite: Docker Desktop with Compose v2.
 
 ```bash
 cd infra/docker-compose
 cp .env.example .env
-docker compose build
-docker compose up -d
-docker compose ps
+docker compose up --build
 ```
 
-## Test Health
+Migrations run automatically: Flyway in IAM, EF migrations in Project startup/container flow, and ordered idempotent Issue SQL migrations at Issue startup. Keep the terminal open to watch structured JSON logs. Send the same `x-correlation-id` header to follow one synchronous request across Gateway, Project, and Issue.
 
-From the repository root:
+In another terminal:
 
 ```bash
 bash scripts/health-check.sh
 ```
 
-On Windows PowerShell:
+Windows:
 
 ```powershell
 pwsh -NoProfile -File scripts/health-check.ps1
 ```
 
-Or run the checks manually:
+## Start the Frontend
 
 ```bash
-curl http://localhost:3000/health
-curl http://localhost:3000/health/services
-curl http://localhost:8081/health
-curl http://localhost:8082/health
-curl http://localhost:8083/health
-curl http://localhost:8084/health
+cd apps/web-client
+npm ci
+npx next dev -H 0.0.0.0 -p 3001
 ```
 
-Expected service health response:
+The default Gateway URL is `http://localhost:3000`. Override it in `apps/web-client/.env.local` with `NEXT_PUBLIC_API_GATEWAY_URL`.
 
-```json
-{
-  "status": "ok",
-  "service": "iam-service",
-  "version": "0.1.0",
-  "timestamp": "2026-06-24T00:00:00.000Z",
-  "dependencies": {
-    "database": "not_checked",
-    "redis": "not_applicable",
-    "kafka": "not_checked"
-  }
-}
-```
+Open `http://localhost:3001/register`, create an account, then create a workspace, project, and issue.
 
-## Stop And Reset
+## Run the Full Smoke Flow
 
-```bash
-cd infra/docker-compose
-docker compose down
-```
-
-Reset volumes when you need PostgreSQL init scripts to run again:
-
-```bash
-cd infra/docker-compose
-docker compose down -v
-docker compose up -d
-```
-
-## Local Service Commands
-
-API Gateway:
-
-```bash
-cd apps/api-gateway-nest
-npm install
-npm run start:dev
-```
-
-IAM Service:
-
-```bash
-cd apps/iam-service-java
-mvn spring-boot:run
-```
-
-Project Service:
-
-```bash
-cd apps/project-service-dotnet
-dotnet run
-```
-
-Apply Project Service EF migration outside Docker:
+The script creates two real users and exercises both synchronous HTTP and asynchronous Kafka notification paths:
 
 ```powershell
-cd apps/project-service-dotnet
-$env:DATABASE_URL = "Host=localhost;Port=5432;Database=project_db;Username=postgres;Password=postgres"
-dotnet ef database update
+pwsh -NoProfile -File scripts/smoke-full-flow.ps1
 ```
 
-Issue Service:
+If port `3000` is already occupied, start Gateway on another host port and pass it to the smoke script:
+
+```powershell
+$env:API_GATEWAY_PORT = "3100"
+docker compose -f infra/docker-compose/docker-compose.yml up -d api-gateway
+pwsh -NoProfile -File scripts/smoke-full-flow.ps1 -GatewayUrl http://localhost:3100
+```
 
 ```bash
-cd apps/issue-service-nest
-npm install
-npm run start:dev
+bash scripts/smoke-full-flow.sh
 ```
 
-Notification Service:
+Inspect the Kafka topic while the flow runs:
 
 ```bash
-cd apps/notification-service-go
-go run .
+docker exec local-redpanda rpk topic consume issue.events.v1 --brokers localhost:9092
 ```
 
-## Troubleshooting
+Follow service logs:
 
-- If PostgreSQL init databases are missing, run `docker compose down -v` from `infra/docker-compose`, then start again.
-- If a service port is already in use, change only the host port mapping in `docker-compose.yml`; keep container ports stable.
-- Inside Docker, services call each other by Compose service name such as `http://iam-service:8081`, not `localhost`.
-- If `GET /health/services` shows a downstream service as `down`, check the target container logs first.
-- If `bash scripts/health-check.sh` fails on Windows because Bash is unavailable, run `pwsh -NoProfile -File scripts/health-check.ps1`.
+```bash
+docker compose -f infra/docker-compose/docker-compose.yml logs -f api-gateway project-service issue-service notification-service
+```
 
-## Week 2 Preparation
+For synchronous HTTP, copy the `correlation=...` value printed by the smoke script and filter every service log by that value. For the asynchronous branch, match the `eventId` in Issue's `outbox_event_published` log with Notification's `event_consumed` log. A correlation ID follows one request; an event ID follows one Kafka message.
 
-- Choose the IAM auth strategy: JWT access plus refresh token, or session.
-- Design a minimal user table.
-- Define `register`, `login`, and `me` endpoint contracts.
-- Decide password hashing defaults.
-- Decide whether Gateway validates tokens locally or delegates validation to IAM.
-- Keep Google Login deferred until local username/password auth works.
+## Verification Commands
+
+```bash
+cd apps/api-gateway-nest && npm ci && npm audit --omit=dev && npm run build
+cd apps/issue-service-nest && npm ci && npm test
+cd apps/web-client && npm ci && npm run lint && npm test && npm run build
+cd apps/iam-service-java && mvn -B test
+dotnet test tests/project-service-dotnet-tests/ProjectService.Tests.csproj
+cd apps/notification-service-go && go test ./... && go build ./...
+```
+
+CI runs the same ecosystem-specific gates plus Docker Compose contract validation. The event envelope lives at `contracts/events/issue-event-v1.schema.json`.
+
+## Important Learning Boundaries
+
+- Ports `8081`–`8084` are exposed locally for debugging. In production, only Gateway should be public and internal identity headers must be accepted only over a trusted private network or authenticated service-to-service channel.
+- Access tokens and refresh tokens are stored in browser local storage for this learning MVP. A production browser application should prefer secure, HttpOnly cookie/session design after threat modeling.
+- Notifications use polling every five seconds. WebSocket delivery is deliberately optional because Kafka correctness and persisted inbox behavior come first.
+- Redis is the Notification data store for the learning slice; long-term audit/reporting requirements would usually justify durable database persistence.
+
+The implementation roadmap and Definition of Done are in [`plans/BACKEND_FIRST_MVP_PLAN.md`](plans/BACKEND_FIRST_MVP_PLAN.md).

@@ -44,6 +44,26 @@ public class RefreshTokenJpaEntity {
         this.expiresAt = expiresAt;
     }
 
+    public UUID getId() {
+        return id;
+    }
+
+    public UUID getUserId() {
+        return user.getId();
+    }
+
+    public String getTokenHash() {
+        return tokenHash;
+    }
+
+    public boolean isRevoked() {
+        return revoked;
+    }
+
+    public Instant getExpiresAt() {
+        return expiresAt;
+    }
+
     @PrePersist
     void onCreate() {
         createdAt = Instant.now();

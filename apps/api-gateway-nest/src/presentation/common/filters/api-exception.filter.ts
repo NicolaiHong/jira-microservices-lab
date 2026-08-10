@@ -6,7 +6,7 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import type { FastifyReply, FastifyRequest } from 'fastify';
-import { AppException } from '../../../domain/errors/app.exception';
+import { AppException } from '../../../common/errors/app.exception';
 import { getCorrelationId } from '../errors/correlation-id';
 
 interface HttpExceptionResponse {

@@ -1,6 +1,6 @@
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import jwt, { JwtPayload, TokenExpiredError } from 'jsonwebtoken';
-import { AppException } from '../../../domain/errors/app.exception';
+import { AppException } from '../../../common/errors/app.exception';
 import { AuthenticatedRequest, GatewayUser } from './authenticated-request';
 
 @Injectable()
@@ -23,6 +23,8 @@ export class JwtAuthGuard implements CanActivate {
     try {
       const payload = jwt.verify(token, this.jwtSecret, {
         algorithms: ['HS256'],
+        issuer: process.env.JWT_ISSUER ?? 'jira-like-iam',
+        audience: process.env.JWT_AUDIENCE ?? 'jira-like-api',
       }) as JwtPayload;
       request.user = this.toGatewayUser(payload);
       return true;

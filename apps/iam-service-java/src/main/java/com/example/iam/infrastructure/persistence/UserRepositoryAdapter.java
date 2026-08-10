@@ -7,6 +7,7 @@ import com.example.iam.domain.port.UserRepository;
 import com.example.iam.infrastructure.persistence.jpa.UserJpaEntity;
 import com.example.iam.infrastructure.persistence.jpa.UserJpaRepository;
 import java.util.Optional;
+import java.util.UUID;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Repository;
 
@@ -21,6 +22,11 @@ public class UserRepositoryAdapter implements UserRepository {
     @Override
     public Optional<User> findByEmail(String email) {
         return userJpaRepository.findByEmailIgnoreCase(email).map(this::toDomain);
+    }
+
+    @Override
+    public Optional<User> findById(UUID id) {
+        return userJpaRepository.findById(id).map(this::toDomain);
     }
 
     @Override

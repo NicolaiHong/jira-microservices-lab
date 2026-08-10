@@ -1,6 +1,12 @@
 export interface Notification {
   id: string;
-  message: string;
-  read: boolean;
+  userId: string;
+  eventId: string;
+  type: string;
+  title: string;
+  body: string;
+  issueId: string;
+  projectId: string;
   createdAt: string;
+  readAt: string | null;
 }

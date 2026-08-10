@@ -1,3 +1,9 @@
 # Event Contracts
 
-Week 1 only prepares Redpanda/Kafka infrastructure. Event schemas are intentionally deferred until feature flows need them.
+Issue Service publishes version 1 envelopes to `issue.events.v1` through its transactional Outbox. Notification Service consumes the topic with consumer group `notification-service-v1`.
+
+Every consumer must deduplicate by `eventId`. New incompatible shapes require a new schema version and topic; additive payload fields remain backward compatible.
+
+- [`issue-event-v1.schema.json`](issue-event-v1.schema.json) is the transport contract.
+- Current event types are `issue.created`, `issue.updated`, `issue.assigned`, `issue.transitioned`, and `issue.commented`.
+- `payload.recipientUserIds` tells Notification Service which users should receive derived notifications.

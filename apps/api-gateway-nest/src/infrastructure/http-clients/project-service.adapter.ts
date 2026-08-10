@@ -1,9 +1,10 @@
-import { Injectable } from '@nestjs/common';
-import { AppException } from '../../domain/errors/app.exception';
-import type {
-  IProjectServicePort,
-  ProjectServiceRequestContext,
-} from '../../domain/ports/project-service.port';
+import { Injectable, Logger } from '@nestjs/common';
+import { AppException } from '../../common/errors/app.exception';
+
+interface ProjectServiceRequestContext {
+  userId: string;
+  correlationId: string;
+}
 
 interface ProjectServiceResponse {
   code?: unknown;
@@ -12,7 +13,8 @@ interface ProjectServiceResponse {
 }
 
 @Injectable()
-export class ProjectServiceAdapter implements IProjectServicePort {
+export class ProjectServiceAdapter {
+  private readonly logger = new Logger(ProjectServiceAdapter.name);
   private readonly projectServiceUrl = (
     process.env.PROJECT_SERVICE_URL ?? 'http://localhost:8082'
   ).replace(/\/+$/, '');
@@ -51,17 +53,111 @@ export class ProjectServiceAdapter implements IProjectServicePort {
     );
   }
 
+  addWorkspaceMember(
+    workspaceId: string,
+    body: unknown,
+    context: ProjectServiceRequestContext,
+  ): Promise<unknown> {
+    return this.forwardToProjectService(
+      'POST',
+      `/internal/workspaces/${encodeURIComponent(workspaceId)}/members`,
+      body,
+      context,
+    );
+  }
+
+  changeWorkspaceMemberRole(
+    workspaceId: string,
+    userId: string,
+    body: unknown,
+    context: ProjectServiceRequestContext,
+  ): Promise<unknown> {
+    return this.forwardToProjectService(
+      'PATCH',
+      `/internal/workspaces/${encodeURIComponent(workspaceId)}/members/${encodeURIComponent(userId)}`,
+      body,
+      context,
+    );
+  }
+
+  async removeWorkspaceMember(
+    workspaceId: string,
+    userId: string,
+    context: ProjectServiceRequestContext,
+  ): Promise<void> {
+    await this.forwardToProjectService(
+      'DELETE',
+      `/internal/workspaces/${encodeURIComponent(workspaceId)}/members/${encodeURIComponent(userId)}`,
+      undefined,
+      context,
+    );
+  }
+
+  listProjects(
+    workspaceId: string,
+    context: ProjectServiceRequestContext,
+  ): Promise<unknown> {
+    return this.forwardToProjectService(
+      'GET',
+      `/internal/workspaces/${encodeURIComponent(workspaceId)}/projects`,
+      undefined,
+      context,
+    );
+  }
+
+  getProject(
+    projectId: string,
+    context: ProjectServiceRequestContext,
+  ): Promise<unknown> {
+    return this.forwardToProjectService(
+      'GET',
+      `/internal/projects/${encodeURIComponent(projectId)}`,
+      undefined,
+      context,
+    );
+  }
+
+  updateProject(
+    projectId: string,
+    body: unknown,
+    context: ProjectServiceRequestContext,
+  ): Promise<unknown> {
+    return this.forwardToProjectService(
+      'PATCH',
+      `/internal/projects/${encodeURIComponent(projectId)}`,
+      body,
+      context,
+    );
+  }
+
+  async archiveProject(
+    projectId: string,
+    context: ProjectServiceRequestContext,
+  ): Promise<void> {
+    await this.forwardToProjectService(
+      'DELETE',
+      `/internal/projects/${encodeURIComponent(projectId)}`,
+      undefined,
+      context,
+    );
+  }
+
   private async forwardToProjectService(
-    method: 'GET' | 'POST',
+    method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
     path: string,
     body: unknown,
     context: ProjectServiceRequestContext,
   ): Promise<unknown> {
-    const hasRequestBody = method !== 'GET';
+    const hasRequestBody = method === 'POST' || method === 'PATCH';
+    const controller = new AbortController();
+    const timeoutMs = Number(process.env.HTTP_CLIENT_TIMEOUT_MS ?? 3000);
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    const startedAt = Date.now();
 
     try {
       const response = await fetch(`${this.projectServiceUrl}${path}`, {
         method,
+        signal: controller.signal,
         headers: {
           accept: 'application/json',
           ...(hasRequestBody ? { 'content-type': 'application/json' } : {}),
@@ -71,6 +167,17 @@ export class ProjectServiceAdapter implements IProjectServicePort {
         body: hasRequestBody ? JSON.stringify(body ?? {}) : undefined,
       });
       const responseBody = await this.parseJsonResponse(response);
+
+      this.logger.log(
+        JSON.stringify({
+          service: 'api-gateway',
+          correlationId: context.correlationId,
+          downstreamService: 'project-service',
+          downstreamPath: path,
+          status: response.status,
+          durationMs: Date.now() - startedAt,
+        }),
+      );
 
       if (!response.ok) {
         throw new AppException(
@@ -95,6 +202,8 @@ export class ProjectServiceAdapter implements IProjectServicePort {
         'PROJECT_SERVICE_UNAVAILABLE',
         'Project service is unavailable',
       );
+    } finally {
+      clearTimeout(timeout);
     }
   }
 
