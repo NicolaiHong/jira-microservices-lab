@@ -47,5 +47,17 @@ docker-compose.override.yml
 logs/
 *.log
 
+# Local tests and test helpers
+tests/
+**/test/
+**/tests/
+**/__tests__/
+*.test.*
+*.spec.*
+
 # Local documentation
 docs/
+
+# Keep only the root project overview on GitHub. Other Markdown is local learning notes.
+*.md
+!/README.md

@@ -1,31 +1,47 @@
-export type IssueStatus = "todo" | "in_progress" | "done";
-export type IssuePriority = "low" | "medium" | "high" | "critical";
-
-export interface IssueAssignee {
-  id: string;
-  email: string;
-}
+export type IssueStatus = "TODO" | "IN_PROGRESS" | "DONE";
+export type IssuePriority = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+export type IssueType = "TASK" | "BUG" | "STORY";
 
 export interface Issue {
   id: string;
-  title: string;
-  status: IssueStatus;
-  priority: IssuePriority;
-  assignee?: IssueAssignee | null;
-  sprintId?: string | null;
   projectId: string;
+  number: number;
+  key: string;
+  summary: string;
+  description: string | null;
+  type: IssueType;
+  priority: IssuePriority;
+  status: IssueStatus;
+  reporterUserId: string;
+  assigneeUserId: string | null;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface IssueComment {
+  id: string;
+  issueId: string;
+  authorUserId: string;
+  body: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface IssueHistory {
+  id: string;
+  issueId: string;
+  actorUserId: string;
+  action: string;
+  fromValue: unknown;
+  toValue: unknown;
+  createdAt: string;
 }
 
 export interface CreateIssuePayload {
-  title: string;
-  projectId: string;
-  status?: IssueStatus;
-  priority?: IssuePriority;
-  assigneeId?: string;
-  sprintId?: string;
-}
-
-export interface ListIssuesParams {
-  projectId?: string;
-  sprintId?: string;
+  summary: string;
+  description?: string;
+  type: IssueType;
+  priority: IssuePriority;
+  assigneeUserId?: string;
 }

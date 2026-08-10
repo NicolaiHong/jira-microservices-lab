@@ -4,6 +4,7 @@ import { useParams } from "next/navigation";
 
 import { Board } from "@/features/issue/components/Board";
 import { useIssues } from "@/features/issue/hooks/useIssues";
+import { IssueForm } from "@/features/issue/components/IssueForm";
 
 export default function ProjectBoardPage() {
   const { projectId } = useParams<{ projectId: string }>();
@@ -16,6 +17,7 @@ export default function ProjectBoardPage() {
         <h1 className="text-2xl font-semibold tracking-normal">Board</h1>
         <p className="text-sm text-muted-foreground">Project {projectId}</p>
       </div>
+      <IssueForm projectId={projectId} />
       {issuesQuery.isPending ? (
         <p className="rounded-lg border bg-background p-4 text-sm text-muted-foreground">
           Loading board...

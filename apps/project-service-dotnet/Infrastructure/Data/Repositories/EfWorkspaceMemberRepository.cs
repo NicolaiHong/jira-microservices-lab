@@ -12,7 +12,6 @@ public sealed class EfWorkspaceMemberRepository(ProjectDbContext dbContext)
         Guid userId,
         CancellationToken cancellationToken) =>
         dbContext.WorkspaceMembers
-            .AsNoTracking()
             .FirstOrDefaultAsync(
                 member => member.WorkspaceId == workspaceId &&
                           member.UserId == userId,
@@ -26,10 +25,26 @@ public sealed class EfWorkspaceMemberRepository(ProjectDbContext dbContext)
             .Where(member => member.UserId == userId)
             .ToListAsync(cancellationToken);
 
+    public Task<int> CountOwnersAsync(
+        Guid workspaceId,
+        CancellationToken cancellationToken) =>
+        dbContext.WorkspaceMembers.CountAsync(
+            member => member.WorkspaceId == workspaceId &&
+                      member.Role == WorkspaceRoles.Owner,
+            cancellationToken);
+
     public async Task AddAsync(
         WorkspaceMember member,
         CancellationToken cancellationToken)
     {
         await dbContext.WorkspaceMembers.AddAsync(member, cancellationToken);
     }
+
+    public void Remove(WorkspaceMember member)
+    {
+        dbContext.WorkspaceMembers.Remove(member);
+    }
+
+    public Task SaveChangesAsync(CancellationToken cancellationToken) =>
+        dbContext.SaveChangesAsync(cancellationToken);
 }

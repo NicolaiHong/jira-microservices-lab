@@ -40,7 +40,7 @@ public static class ProjectApiExceptionMiddleware
                 logger.LogError(
                     exception,
                     "Unhandled Project Service error. CorrelationId={CorrelationId}",
-                    GetCorrelationId(context));
+                    CorrelationId.GetOrCreate(context));
 
                 await WriteErrorAsync(
                     context,
@@ -70,19 +70,12 @@ public static class ProjectApiExceptionMiddleware
         var response = new ApiErrorResponse(
             code,
             message,
-            GetCorrelationId(context),
+            CorrelationId.GetOrCreate(context),
             details);
 
         await context.Response.WriteAsJsonAsync(response);
     }
 
-    private static string GetCorrelationId(HttpContext context)
-    {
-        var header = context.Request.Headers["x-correlation-id"].FirstOrDefault();
-        return string.IsNullOrWhiteSpace(header)
-            ? $"req_{Guid.NewGuid():N}"
-            : header;
-    }
 }
 
 internal sealed record ApiErrorResponse(

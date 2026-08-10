@@ -1,0 +1,74 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  node:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [api-gateway-nest, issue-service-nest, web-client]
+    defaults:
+      run:
+        working-directory: apps/${{ matrix.app }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/${{ matrix.app }}/package-lock.json
+      - run: npm ci
+      - run: npm audit --omit=dev
+      - run: npm run build
+      - if: matrix.app == 'issue-service-nest' || matrix.app == 'web-client'
+        run: npm test
+      - if: matrix.app == 'web-client'
+        run: npm run lint
+
+  java:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/iam-service-java
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: maven
+      - run: mvn -B test
+
+  dotnet:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+      - run: dotnet test tests/project-service-dotnet-tests/ProjectService.Tests.csproj
+
+  go:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/notification-service-go
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache-dependency-path: apps/notification-service-go/go.sum
+      - run: go test ./...
+      - run: go build ./...
+
+  compose-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose -f infra/docker-compose/docker-compose.yml config --quiet
+      - run: jq empty contracts/events/issue-event-v1.schema.json contracts/health.schema.json

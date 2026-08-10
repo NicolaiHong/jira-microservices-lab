@@ -2,15 +2,19 @@ package com.example.iam.presentation.mapper;
 
 import com.example.iam.application.dto.AuthenticatedUserResult;
 import com.example.iam.application.dto.LoginCommand;
+import com.example.iam.application.dto.LogoutCommand;
 import com.example.iam.application.dto.LoginResult;
 import com.example.iam.application.dto.RegisterCommand;
 import com.example.iam.application.dto.RegisterResult;
 import com.example.iam.application.dto.RegisteredUserResult;
+import com.example.iam.application.dto.RefreshSessionCommand;
 import com.example.iam.presentation.dto.AuthenticatedUserResponseDto;
 import com.example.iam.presentation.dto.LoginRequestDto;
 import com.example.iam.presentation.dto.LoginResponseDto;
+import com.example.iam.presentation.dto.LogoutRequestDto;
 import com.example.iam.presentation.dto.RegisterRequestDto;
 import com.example.iam.presentation.dto.RegisterResponseDto;
+import com.example.iam.presentation.dto.RefreshSessionRequestDto;
 import com.example.iam.presentation.dto.RegisteredUserResponseDto;
 
 public final class AuthDtoMapper {
@@ -22,6 +26,14 @@ public final class AuthDtoMapper {
 
     public static LoginCommand toCommand(LoginRequestDto request) {
         return new LoginCommand(request.email(), request.password());
+    }
+
+    public static RefreshSessionCommand toCommand(RefreshSessionRequestDto request) {
+        return new RefreshSessionCommand(request.refreshToken());
+    }
+
+    public static LogoutCommand toCommand(LogoutRequestDto request) {
+        return new LogoutCommand(request.refreshToken());
     }
 
     public static RegisterResponseDto toResponse(RegisterResult result) {

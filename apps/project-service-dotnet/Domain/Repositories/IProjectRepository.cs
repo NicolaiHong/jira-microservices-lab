@@ -2,6 +2,14 @@ namespace ProjectService.Domain.Repositories;
 
 public interface IProjectRepository
 {
+    Task<Project?> FindByIdAsync(
+        Guid projectId,
+        CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<Project>> ListByWorkspaceIdAsync(
+        Guid workspaceId,
+        CancellationToken cancellationToken);
+
     Task<bool> AnyByKeyAsync(
         Guid workspaceId,
         string key,

@@ -1,7 +1,6 @@
 import { Body, Controller, Get, HttpCode, Post, Req, UseGuards } from '@nestjs/common';
 import type { FastifyRequest } from 'fastify';
-import { LoginUseCase } from '../../application/auth/login.use-case';
-import { RegisterUseCase } from '../../application/auth/register.use-case';
+import { AuthService } from '../../services/auth.service';
 import {
   AuthenticatedRequest,
   GatewayUser,
@@ -12,27 +11,33 @@ import { getCorrelationId } from '../common/errors/correlation-id';
 @Controller('api/auth')
 export class AuthController {
   constructor(
-    private readonly registerUseCase: RegisterUseCase,
-    private readonly loginUseCase: LoginUseCase,
+    private readonly authService: AuthService,
   ) {}
 
   @Post('register')
   register(@Body() body: unknown, @Req() request: FastifyRequest) {
-    return this.registerUseCase.execute({
-      body,
-      clientIp: this.clientIp(request),
-      correlationId: getCorrelationId(request),
-    });
+    return this.authService.register(body, this.clientIp(request), getCorrelationId(request));
   }
 
   @Post('login')
   @HttpCode(200)
   login(@Body() body: unknown, @Req() request: FastifyRequest) {
-    return this.loginUseCase.execute({
-      body,
-      clientIp: this.clientIp(request),
-      correlationId: getCorrelationId(request),
-    });
+    return this.authService.login(body, this.clientIp(request), getCorrelationId(request));
+  }
+
+  @Post('refresh')
+  @HttpCode(200)
+  refresh(@Body() body: unknown, @Req() request: FastifyRequest) {
+    return this.authService.refresh(body, getCorrelationId(request));
+  }
+
+  @Post('logout')
+  @HttpCode(204)
+  async logout(
+    @Body() body: unknown,
+    @Req() request: FastifyRequest,
+  ): Promise<void> {
+    await this.authService.logout(body, getCorrelationId(request));
   }
 
   @Get('me')

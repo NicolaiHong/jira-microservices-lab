@@ -1,31 +1,14 @@
-"use client";
-
-import { ProjectList } from "@/features/project/components/ProjectList";
-import { useProjects } from "@/features/project/hooks/useProjects";
+import { WorkspaceProjectDashboard } from "@/features/project/components/WorkspaceProjectDashboard";
 
 export default function ProjectsPage() {
-  const projectsQuery = useProjects();
-  const projects = projectsQuery.data ?? [];
-
   return (
-    <section className="flex flex-col gap-4">
+    <section className="flex flex-col gap-5">
       <div>
-        <h1 className="text-2xl font-semibold tracking-normal">Projects</h1>
-        <p className="text-sm text-muted-foreground">
-          Gateway-backed project context for the workspace.
-        </p>
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Project command center</p>
+        <h1 className="mt-1 text-3xl font-semibold tracking-tight">Workspaces & projects</h1>
+        <p className="mt-1 text-sm text-muted-foreground">Everything here talks to the system through the API Gateway.</p>
       </div>
-      {projectsQuery.isPending ? (
-        <p className="rounded-lg border bg-background p-4 text-sm text-muted-foreground">
-          Loading projects...
-        </p>
-      ) : projectsQuery.isError ? (
-        <p className="rounded-lg border border-dashed bg-background p-4 text-sm text-muted-foreground">
-          Project API placeholder could not load data yet.
-        </p>
-      ) : (
-        <ProjectList projects={projects} />
-      )}
+      <WorkspaceProjectDashboard />
     </section>
   );
 }

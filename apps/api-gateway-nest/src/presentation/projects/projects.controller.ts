@@ -1,51 +1,109 @@
-import { Body, Controller, Get, Param, Post, Req, UseGuards } from '@nestjs/common';
-import { CreateProjectUseCase } from '../../application/projects/create-project.use-case';
-import { CreateWorkspaceUseCase } from '../../application/projects/create-workspace.use-case';
-import { ListWorkspacesUseCase } from '../../application/projects/list-workspaces.use-case';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  Param,
+  Patch,
+  Post,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
+import { ProjectsService } from '../../services/projects.service';
 import { getCorrelationId } from '../common/errors/correlation-id';
 import { AuthenticatedRequest } from '../common/guards/authenticated-request';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 
-@Controller('api/workspaces')
+@Controller('api')
 @UseGuards(JwtAuthGuard)
 export class ProjectsController {
   constructor(
-    private readonly createWorkspaceUseCase: CreateWorkspaceUseCase,
-    private readonly listWorkspacesUseCase: ListWorkspacesUseCase,
-    private readonly createProjectUseCase: CreateProjectUseCase,
+    private readonly projectsService: ProjectsService,
   ) {}
 
-  @Post()
+  @Post('workspaces')
   createWorkspace(
     @Body() body: unknown,
     @Req() request: AuthenticatedRequest,
   ): Promise<unknown> {
-    return this.createWorkspaceUseCase.execute({
-      body,
-      authenticatedUserId: request.user?.userId,
-      correlationId: getCorrelationId(request),
-    });
+    return this.projectsService.createWorkspace(body, request.user?.userId, getCorrelationId(request));
   }
 
-  @Get()
+  @Get('workspaces')
   listWorkspaces(@Req() request: AuthenticatedRequest): Promise<unknown> {
-    return this.listWorkspacesUseCase.execute({
-      authenticatedUserId: request.user?.userId,
-      correlationId: getCorrelationId(request),
-    });
+    return this.projectsService.listWorkspaces(request.user?.userId, getCorrelationId(request));
   }
 
-  @Post(':workspaceId/projects')
+  @Post('workspaces/:workspaceId/projects')
   createProject(
     @Param('workspaceId') workspaceId: string,
     @Body() body: unknown,
     @Req() request: AuthenticatedRequest,
   ): Promise<unknown> {
-    return this.createProjectUseCase.execute({
-      workspaceId,
-      body,
-      authenticatedUserId: request.user?.userId,
-      correlationId: getCorrelationId(request),
-    });
+    return this.projectsService.createProject(workspaceId, body, request.user?.userId, getCorrelationId(request));
+  }
+
+  @Post('workspaces/:workspaceId/members')
+  addWorkspaceMember(
+    @Param('workspaceId') workspaceId: string,
+    @Body() body: unknown,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<unknown> {
+    return this.projectsService.addWorkspaceMember(workspaceId, body, request.user?.userId, getCorrelationId(request));
+  }
+
+  @Patch('workspaces/:workspaceId/members/:userId')
+  changeWorkspaceMemberRole(
+    @Param('workspaceId') workspaceId: string,
+    @Param('userId') userId: string,
+    @Body() body: unknown,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<unknown> {
+    return this.projectsService.changeWorkspaceMemberRole(workspaceId, userId, body, request.user?.userId, getCorrelationId(request));
+  }
+
+  @Delete('workspaces/:workspaceId/members/:userId')
+  @HttpCode(204)
+  removeWorkspaceMember(
+    @Param('workspaceId') workspaceId: string,
+    @Param('userId') userId: string,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<void> {
+    return this.projectsService.removeWorkspaceMember(workspaceId, userId, request.user?.userId, getCorrelationId(request));
+  }
+
+  @Get('workspaces/:workspaceId/projects')
+  listProjects(
+    @Param('workspaceId') workspaceId: string,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<unknown> {
+    return this.projectsService.listProjects(workspaceId, request.user?.userId, getCorrelationId(request));
+  }
+
+  @Get('projects/:projectId')
+  getProject(
+    @Param('projectId') projectId: string,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<unknown> {
+    return this.projectsService.getProject(projectId, request.user?.userId, getCorrelationId(request));
+  }
+
+  @Patch('projects/:projectId')
+  updateProject(
+    @Param('projectId') projectId: string,
+    @Body() body: unknown,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<unknown> {
+    return this.projectsService.updateProject(projectId, body, request.user?.userId, getCorrelationId(request));
+  }
+
+  @Delete('projects/:projectId')
+  @HttpCode(204)
+  archiveProject(
+    @Param('projectId') projectId: string,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<void> {
+    return this.projectsService.archiveProject(projectId, request.user?.userId, getCorrelationId(request));
   }
 }

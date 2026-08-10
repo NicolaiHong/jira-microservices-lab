@@ -72,6 +72,7 @@ public sealed class CreateProjectUseCase(
             Name = name,
             Key = key,
             Description = description,
+            Status = ProjectStatuses.Active,
             CreatedByUserId = authenticatedUserId,
             CreatedAt = now,
             UpdatedAt = now
@@ -87,8 +88,10 @@ public sealed class CreateProjectUseCase(
                 project.Name,
                 project.Key,
                 project.Description,
+                project.Status,
                 project.CreatedByUserId,
-                project.CreatedAt));
+                project.CreatedAt,
+                project.UpdatedAt));
     }
 
     private static DomainException ProjectKeyAlreadyExists() =>

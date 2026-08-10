@@ -1,10 +1,8 @@
 import Link from "next/link";
-import { ClipboardListIcon, FolderKanbanIcon, InboxIcon } from "lucide-react";
+import { FolderKanbanIcon } from "lucide-react";
 
 const navigation = [
   { href: "/projects", label: "Projects", icon: FolderKanbanIcon },
-  { href: "/projects/demo/board", label: "Board", icon: ClipboardListIcon },
-  { href: "/projects/demo/backlog", label: "Backlog", icon: InboxIcon },
 ];
 
 export function Sidebar() {

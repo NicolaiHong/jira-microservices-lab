@@ -6,6 +6,7 @@ import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
+import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -104,6 +105,9 @@ export function LoginForm() {
           <Button className="w-full" disabled={auth.isLoggingIn} type="submit">
             {auth.isLoggingIn ? "Signing in..." : "Sign in"}
           </Button>
+          <p className="text-center text-sm text-muted-foreground">
+            New here? <Link className="font-medium text-foreground hover:underline" href="/register">Create an account</Link>
+          </p>
         </form>
       </CardContent>
     </Card>

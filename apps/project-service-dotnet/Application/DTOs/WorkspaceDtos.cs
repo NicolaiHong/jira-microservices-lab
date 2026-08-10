@@ -20,3 +20,19 @@ public sealed record UserWorkspaceResult(
     string Slug,
     string Role,
     DateTimeOffset CreatedAt);
+
+public sealed record AddWorkspaceMemberCommand(
+    Guid? UserId,
+    string? Role);
+
+public sealed record ChangeWorkspaceMemberRoleCommand(string? Role);
+
+public sealed record WorkspaceMemberResult(
+    Guid UserId,
+    string Role,
+    DateTimeOffset JoinedAt,
+    DateTimeOffset UpdatedAt);
+
+public sealed record AddWorkspaceMemberResult(WorkspaceMemberResult Member);
+
+public sealed record ChangeWorkspaceMemberRoleResult(WorkspaceMemberResult Member);

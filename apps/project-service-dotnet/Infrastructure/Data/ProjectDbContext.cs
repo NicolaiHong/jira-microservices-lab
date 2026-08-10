@@ -90,7 +90,12 @@ public sealed class ProjectDbContext(DbContextOptions<ProjectDbContext> options)
 
         modelBuilder.Entity<Project>(entity =>
         {
-            entity.ToTable("projects");
+            entity.ToTable("projects", table =>
+            {
+                table.HasCheckConstraint(
+                    "ck_projects_status",
+                    "status IN ('ACTIVE', 'ARCHIVED')");
+            });
 
             entity.HasKey(project => project.Id);
             entity.Property(project => project.Id).HasColumnName("id");
@@ -107,6 +112,10 @@ public sealed class ProjectDbContext(DbContextOptions<ProjectDbContext> options)
                 .IsRequired();
             entity.Property(project => project.Description)
                 .HasColumnName("description");
+            entity.Property(project => project.Status)
+                .HasColumnName("status")
+                .HasMaxLength(30)
+                .IsRequired();
             entity.Property(project => project.CreatedByUserId)
                 .HasColumnName("created_by_user_id")
                 .IsRequired();

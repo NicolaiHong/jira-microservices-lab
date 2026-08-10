@@ -10,6 +10,8 @@ export interface LoginPayload {
   password: string;
 }
 
+export type RegisterPayload = LoginPayload;
+
 export interface AuthResponse {
   accessToken: string;
   refreshToken?: string | null;

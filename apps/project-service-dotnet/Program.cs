@@ -27,12 +27,27 @@ builder.Services.AddScoped<IProjectRepository, EfProjectRepository>();
 builder.Services.AddScoped<CreateWorkspaceUseCase>();
 builder.Services.AddScoped<ListUserWorkspacesUseCase>();
 builder.Services.AddScoped<CreateProjectUseCase>();
+builder.Services.AddScoped<AddWorkspaceMemberUseCase>();
+builder.Services.AddScoped<ChangeWorkspaceMemberRoleUseCase>();
+builder.Services.AddScoped<RemoveWorkspaceMemberUseCase>();
+builder.Services.AddScoped<ListProjectsUseCase>();
+builder.Services.AddScoped<GetProjectUseCase>();
+builder.Services.AddScoped<UpdateProjectUseCase>();
+builder.Services.AddScoped<ArchiveProjectUseCase>();
+builder.Services.AddScoped<GetProjectAccessContextUseCase>();
 
 var port = Environment.GetEnvironmentVariable("PORT") ?? "8082";
 builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
 
 var app = builder.Build();
 
+using (var scope = app.Services.CreateScope())
+{
+    var dbContext = scope.ServiceProvider.GetRequiredService<ProjectDbContext>();
+    await dbContext.Database.MigrateAsync();
+}
+
+app.UseProjectRequestLogging();
 app.UseProjectApiExceptionHandling();
 
 app.MapHealthEndpoints();

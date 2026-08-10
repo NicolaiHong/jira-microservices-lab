@@ -1,67 +1,66 @@
 package main
 
 import (
-	"encoding/json"
+	"context"
+	"errors"
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"strings"
+	"syscall"
 	"time"
+
+	"github.com/example/jira-like-polyglot-microservices/notification-service/internal/api"
+	"github.com/example/jira-like-polyglot-microservices/notification-service/internal/consumer"
+	"github.com/example/jira-like-polyglot-microservices/notification-service/internal/store"
 )
 
-type healthResponse struct {
-	Status       string            `json:"status"`
-	Service      string            `json:"service"`
-	Version      string            `json:"version"`
-	Timestamp    string            `json:"timestamp"`
-	Dependencies map[string]string `json:"dependencies"`
-}
-
 func main() {
-	port := env("PORT", "8084")
-	mux := http.NewServeMux()
-	mux.HandleFunc("/health", healthHandler)
-
-	server := &http.Server{
-		Addr:              "0.0.0.0:" + port,
-		Handler:           mux,
-		ReadHeaderTimeout: 5 * time.Second,
-	}
-
-	log.Printf("notification-service listening on %s", server.Addr)
-	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+	redisStore, err := store.NewRedisStore(env("REDIS_URL", "redis://localhost:6379"))
+	if err != nil {
 		log.Fatal(err)
 	}
-}
+	defer redisStore.Close()
 
-func healthHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer cancel()
+
+	eventConsumer := consumer.NewIssueEventConsumer(
+		strings.Split(env("KAFKA_BROKERS", "localhost:9092"), ","),
+		env("ISSUE_EVENTS_TOPIC", "issue.events.v1"),
+		redisStore,
+	)
+	go eventConsumer.Run(ctx)
+
+	server := &http.Server{
+		Addr:              "0.0.0.0:" + env("PORT", "8084"),
+		Handler:           api.NewHandler(redisStore).Routes(),
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       10 * time.Second,
+		WriteTimeout:      10 * time.Second,
+		IdleTimeout:       60 * time.Second,
 	}
 
-	response := healthResponse{
-		Status:    "ok",
-		Service:   "notification-service",
-		Version:   "0.1.0",
-		Timestamp: time.Now().UTC().Format(time.RFC3339Nano),
-		Dependencies: map[string]string{
-			"database": "not_applicable",
-			"redis":   "not_checked",
-			"kafka":   "not_checked",
-		},
-	}
+	go func() {
+		log.Printf("notification-service listening on %s", server.Addr)
+		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Fatal(err)
+		}
+	}()
 
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		http.Error(w, "failed to encode health response", http.StatusInternalServerError)
+	<-ctx.Done()
+	shutdownContext, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer shutdownCancel()
+	_ = eventConsumer.Close()
+	if err := server.Shutdown(shutdownContext); err != nil {
+		log.Printf("notification-service shutdown failed: %v", err)
 	}
 }
 
 func env(name string, fallback string) string {
-	value := os.Getenv(name)
-	if value == "" {
-		return fallback
+	if value := strings.TrimSpace(os.Getenv(name)); value != "" {
+		return value
 	}
-
-	return value
+	return fallback
 }
