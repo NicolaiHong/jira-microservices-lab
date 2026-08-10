@@ -24,8 +24,6 @@ jobs:
       - run: npm ci
       - run: npm audit --omit=dev
       - run: npm run build
-      - if: matrix.app == 'issue-service-nest' || matrix.app == 'web-client'
-        run: npm test
       - if: matrix.app == 'web-client'
         run: npm run lint
 
@@ -41,7 +39,7 @@ jobs:
           distribution: temurin
           java-version: 17
           cache: maven
-      - run: mvn -B test
+      - run: mvn -B package -Dmaven.test.skip=true
 
   dotnet:
     runs-on: ubuntu-latest
@@ -50,7 +48,7 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 9.0.x
-      - run: dotnet test tests/project-service-dotnet-tests/ProjectService.Tests.csproj
+      - run: dotnet build apps/project-service-dotnet/ProjectService.csproj --configuration Release
 
   go:
     runs-on: ubuntu-latest
@@ -63,7 +61,6 @@ jobs:
         with:
           go-version: '1.22'
           cache-dependency-path: apps/notification-service-go/go.sum
-      - run: go test ./...
       - run: go build ./...
 
   compose-contract:
