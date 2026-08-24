@@ -12,7 +12,7 @@ public sealed class EfProjectRepository(ProjectDbContext dbContext)
     public Task<Project?> FindByIdAsync(
         Guid projectId,
         CancellationToken cancellationToken) =>
-        dbContext.Projects.FirstOrDefaultAsync(
+        dbContext.Projects.AsNoTracking().FirstOrDefaultAsync(
             project => project.Id == projectId,
             cancellationToken);
 
@@ -40,8 +40,54 @@ public sealed class EfProjectRepository(ProjectDbContext dbContext)
         CancellationToken cancellationToken) =>
         dbContext.Projects.AnyAsync(
             project => project.WorkspaceId == workspaceId &&
-                       project.Name == name,
+                       project.Name.ToLower() == name.ToLowerInvariant(),
             cancellationToken);
+
+    public async Task<bool> UpdateActiveAsync(
+        Guid projectId,
+        string name,
+        string? description,
+        DateTimeOffset updatedAt,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var affected = await dbContext.Projects
+                .Where(project =>
+                    project.Id == projectId &&
+                    project.Status == ProjectStatuses.Active)
+                .ExecuteUpdateAsync(updates => updates
+                    .SetProperty(project => project.Name, name)
+                    .SetProperty(project => project.Description, description)
+                    .SetProperty(project => project.UpdatedAt, updatedAt),
+                    cancellationToken);
+
+            return affected == 1;
+        }
+        catch (PostgresException exception) when (IsUniqueViolation(
+                   exception,
+                   "ux_projects_workspace_id_lower_name"))
+        {
+            throw ProjectNameAlreadyExists();
+        }
+    }
+
+    public async Task<bool> ArchiveActiveAsync(
+        Guid projectId,
+        DateTimeOffset archivedAt,
+        CancellationToken cancellationToken)
+    {
+        var affected = await dbContext.Projects
+            .Where(project =>
+                project.Id == projectId &&
+                project.Status == ProjectStatuses.Active)
+            .ExecuteUpdateAsync(updates => updates
+                .SetProperty(project => project.Status, ProjectStatuses.Archived)
+                .SetProperty(project => project.UpdatedAt, archivedAt),
+                cancellationToken);
+
+        return affected == 1;
+    }
 
     public async Task AddAsync(
         Project project,
@@ -58,24 +104,35 @@ public sealed class EfProjectRepository(ProjectDbContext dbContext)
         }
         catch (DbUpdateException exception) when (IsUniqueViolation(exception, "ux_projects_workspace_id_key"))
         {
-            throw new DomainException(
-                409,
-                ProjectErrorCodes.ProjectKeyAlreadyExists,
-                "Project key already exists inside this workspace");
+            throw ProjectKeyAlreadyExists();
         }
-        catch (DbUpdateException exception) when (IsUniqueViolation(exception, "ux_projects_workspace_id_name"))
+        catch (DbUpdateException exception) when (IsUniqueViolation(exception, "ux_projects_workspace_id_lower_name"))
         {
-            throw new DomainException(
-                409,
-                ProjectErrorCodes.ProjectNameAlreadyExists,
-                "Project name already exists inside this workspace");
+            throw ProjectNameAlreadyExists();
         }
     }
+
+    private static DomainException ProjectKeyAlreadyExists() =>
+        new(
+            409,
+            ProjectErrorCodes.ProjectKeyAlreadyExists,
+            "Project key already exists inside this workspace");
+
+    private static DomainException ProjectNameAlreadyExists() =>
+        new(
+            409,
+            ProjectErrorCodes.ProjectNameAlreadyExists,
+            "Project name already exists inside this workspace");
 
     private static bool IsUniqueViolation(
         DbUpdateException exception,
         string constraintName) =>
         exception.InnerException is PostgresException postgresException &&
-        postgresException.SqlState == PostgresErrorCodes.UniqueViolation &&
-        postgresException.ConstraintName == constraintName;
+        IsUniqueViolation(postgresException, constraintName);
+
+    private static bool IsUniqueViolation(
+        PostgresException exception,
+        string constraintName) =>
+        exception.SqlState == PostgresErrorCodes.UniqueViolation &&
+        exception.ConstraintName == constraintName;
 }

@@ -54,4 +54,34 @@ export class IssuesController {
     return this.issues.listHistory(issueId, request.user?.userId, getCorrelationId(request));
   }
 
+  @Get('projects/:projectId/epics')
+  listEpics(@Param('projectId') projectId: string, @Req() request: AuthenticatedRequest) {
+    return this.issues.listEpics(projectId, request.user?.userId, getCorrelationId(request));
+  }
+
+  @Post('projects/:projectId/epics')
+  createEpic(@Param('projectId') projectId: string, @Body() body: unknown, @Req() request: AuthenticatedRequest) {
+    return this.issues.createEpic(projectId, body, request.user?.userId, getCorrelationId(request));
+  }
+
+  @Patch('epics/:epicId')
+  updateEpic(@Param('epicId') epicId: string, @Body() body: unknown, @Req() request: AuthenticatedRequest) {
+    return this.issues.updateEpic(epicId, body, request.user?.userId, getCorrelationId(request));
+  }
+
+  @Get('projects/:projectId/sprints')
+  listSprints(@Param('projectId') projectId: string, @Req() request: AuthenticatedRequest) {
+    return this.issues.listSprints(projectId, request.user?.userId, getCorrelationId(request));
+  }
+
+  @Post('projects/:projectId/sprints')
+  createSprint(@Param('projectId') projectId: string, @Body() body: unknown, @Req() request: AuthenticatedRequest) {
+    return this.issues.createSprint(projectId, body, request.user?.userId, getCorrelationId(request));
+  }
+
+  @Post('sprints/:sprintId/complete')
+  completeSprint(@Param('sprintId') sprintId: string, @Req() request: AuthenticatedRequest) {
+    return this.issues.completeSprint(sprintId, request.user?.userId, getCorrelationId(request));
+  }
+
 }

@@ -56,11 +56,12 @@ export function LoginForm() {
   }
 
   return (
-    <Card className="w-full max-w-sm">
+    <Card className="auth-card w-full max-w-sm border-0 bg-transparent p-0 shadow-none ring-0">
       <CardHeader>
-        <CardTitle>Sign in</CardTitle>
+        <p className="eyebrow">Welcome back</p>
+        <CardTitle className="mt-2 text-4xl font-normal tracking-[-0.045em]">Sign in</CardTitle>
         <CardDescription>
-          Use your gateway-backed IAM account to continue.
+          Pick up where the important work left off.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -102,11 +103,11 @@ export function LoginForm() {
               </p>
             ) : null}
           </div>
-          <Button className="w-full" disabled={auth.isLoggingIn} type="submit">
+          <Button className="mt-2 w-full" disabled={auth.isLoggingIn} type="submit">
             {auth.isLoggingIn ? "Signing in..." : "Sign in"}
           </Button>
           <p className="text-center text-sm text-muted-foreground">
-            New here? <Link className="font-medium text-foreground hover:underline" href="/register">Create an account</Link>
+            New here? <Link className="font-semibold text-foreground underline decoration-foreground/35 underline-offset-4 hover:decoration-foreground" href="/register">Create an account</Link>
           </p>
         </form>
       </CardContent>

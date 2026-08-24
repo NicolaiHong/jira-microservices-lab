@@ -13,6 +13,7 @@ export class IamServiceAdapter {
   private readonly iamServiceUrl = (
     process.env.IAM_SERVICE_URL ?? 'http://localhost:8081'
   ).replace(/\/+$/, '');
+  private readonly internalServiceSecret = process.env.INTERNAL_SERVICE_SECRET ?? '';
 
   register(body: unknown, correlationId: string): Promise<unknown> {
     return this.forwardToIam('register', body, correlationId);
@@ -48,6 +49,7 @@ export class IamServiceAdapter {
           accept: 'application/json',
           'content-type': 'application/json',
           'x-correlation-id': correlationId,
+          'x-internal-service-secret': this.internalServiceSecret,
         },
         body: JSON.stringify(body ?? {}),
       });

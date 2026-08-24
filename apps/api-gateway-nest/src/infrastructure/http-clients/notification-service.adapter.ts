@@ -12,6 +12,7 @@ export class NotificationServiceAdapter {
   private readonly baseUrl = (
     process.env.NOTIFICATION_SERVICE_URL ?? 'http://localhost:8084'
   ).replace(/\/+$/, '');
+  private readonly internalServiceSecret = process.env.INTERNAL_SERVICE_SECRET ?? '';
 
   list(context: ProjectServiceRequestContext): Promise<unknown> {
     return this.forward('GET', '/internal/notifications', context);
@@ -48,6 +49,7 @@ export class NotificationServiceAdapter {
           accept: 'application/json',
           'x-authenticated-user-id': context.userId,
           'x-correlation-id': context.correlationId,
+          'x-internal-service-secret': this.internalServiceSecret,
         },
       });
       const text = await response.text();

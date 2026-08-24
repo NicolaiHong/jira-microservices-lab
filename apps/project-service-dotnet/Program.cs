@@ -49,8 +49,13 @@ using (var scope = app.Services.CreateScope())
 
 app.UseProjectRequestLogging();
 app.UseProjectApiExceptionHandling();
+app.UseInternalServiceAuthentication(
+    builder.Configuration["INTERNAL_SERVICE_SECRET"]
+    ?? throw new InvalidOperationException("INTERNAL_SERVICE_SECRET is required."));
 
 app.MapHealthEndpoints();
 app.MapInternalProjectEndpoints();
 
 app.Run();
+
+public partial class Program;

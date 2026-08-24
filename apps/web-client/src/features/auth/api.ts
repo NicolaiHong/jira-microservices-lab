@@ -12,18 +12,8 @@ export async function login(payload: LoginPayload): Promise<AuthResponse> {
   return data;
 }
 
-export async function logout(refreshToken: string | null): Promise<void> {
-  if (refreshToken) {
-    await http.post("/api/auth/logout", { refreshToken });
-  }
-}
-
-export async function refreshToken(token: string): Promise<AuthResponse> {
-  const { data } = await http.post<AuthResponse>("/api/auth/refresh", {
-    refreshToken: token,
-  });
-
-  return data;
+export async function logout(): Promise<void> {
+  await http.post("/api/auth/logout");
 }
 
 export async function me(): Promise<User> {

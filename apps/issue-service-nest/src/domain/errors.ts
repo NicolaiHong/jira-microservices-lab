@@ -16,3 +16,10 @@ export const validationError = (field: string, message: string) =>
   new DomainError(400, 'VALIDATION_ERROR', 'Request validation failed', {
     [field]: message,
   });
+
+export const concurrentIssueModification = () =>
+  new DomainError(
+    409,
+    'CONCURRENT_ISSUE_MODIFICATION',
+    'Issue changed since it was last loaded',
+  );

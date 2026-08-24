@@ -97,7 +97,7 @@ func (c *IssueEventConsumer) handle(ctx context.Context, raw []byte) error {
 			notifications[i].CreatedAt = time.Now().UTC()
 		}
 	}
-	if err := c.store.SaveEventNotifications(ctx, event, notifications); err != nil {
+	if err := c.store.SaveEventNotifications(ctx, notifications); err != nil {
 		return fmt.Errorf("save notifications: %w", err)
 	}
 	log.Printf(

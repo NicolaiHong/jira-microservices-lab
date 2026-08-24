@@ -21,7 +21,9 @@ public sealed class ArchiveProjectUseCase(
         }
 
         WorkspaceAccess.RequireProjectManager(actor);
-        project.Archive(DateTimeOffset.UtcNow);
-        await projectRepository.SaveChangesAsync(cancellationToken);
+        await projectRepository.ArchiveActiveAsync(
+            project.Id,
+            PostgresTimestamp.UtcNow(),
+            cancellationToken);
     }
 }

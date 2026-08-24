@@ -11,9 +11,5 @@ check() {
 
 check "api-gateway" "http://localhost:3000/health"
 check "api-gateway-services" "http://localhost:3000/health/services"
-check "iam-service" "http://localhost:8081/health"
-check "project-service" "http://localhost:8082/health"
-check "issue-service" "http://localhost:8083/health"
-check "notification-service" "http://localhost:8084/health"
 
 echo "All health checks passed"

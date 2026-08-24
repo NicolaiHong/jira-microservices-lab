@@ -30,11 +30,21 @@ public sealed class UpdateProjectUseCase(
         }
 
         WorkspaceAccess.RequireProjectManager(actor);
-        var name = RequestValidation.RequiredString(command.Name, "name", 120);
-        var description = RequestValidation.OptionalString(
-            command.Description, "description", 2000);
+        if (!command.HasName && !command.HasDescription)
+        {
+            return new UpdateProjectResult(ProjectResultMapper.ToResult(project));
+        }
 
-        if (!string.Equals(project.Name, name, StringComparison.Ordinal) &&
+        var name = command.HasName
+            ? RequestValidation.RequiredString(command.Name, "name", 120)
+            : project.Name;
+        var description = command.HasDescription
+            ? RequestValidation.OptionalString(
+                command.Description, "description", 2000)
+            : project.Description;
+
+        if (command.HasName &&
+            !string.Equals(project.Name, name, StringComparison.OrdinalIgnoreCase) &&
             await projectRepository.AnyByNameAsync(
                 project.WorkspaceId, name, cancellationToken))
         {
@@ -44,9 +54,28 @@ public sealed class UpdateProjectUseCase(
                 "Project name already exists inside this workspace");
         }
 
-        project.UpdateDetails(name, description, DateTimeOffset.UtcNow);
-        await projectRepository.SaveChangesAsync(cancellationToken);
+        var updatedAt = PostgresTimestamp.UtcNow();
+        var updated = await projectRepository.UpdateActiveAsync(
+            project.Id,
+            name,
+            description,
+            updatedAt,
+            cancellationToken);
 
-        return new UpdateProjectResult(ProjectResultMapper.ToResult(project));
+        if (!updated)
+        {
+            throw new DomainException(
+                409,
+                ProjectErrorCodes.ProjectArchived,
+                "Archived projects cannot be changed");
+        }
+
+        return new UpdateProjectResult(
+            ProjectResultMapper.ToResult(project) with
+            {
+                Name = name,
+                Description = description,
+                UpdatedAt = updatedAt
+            });
     }
 }

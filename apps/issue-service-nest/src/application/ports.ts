@@ -1,7 +1,9 @@
 import type { Issue, IssueComment, IssueHistory } from '../domain/issue';
+import type { Epic, Sprint } from '../domain/planning';
 
 export const ISSUE_REPOSITORY = Symbol('ISSUE_REPOSITORY');
 export const PROJECT_ACCESS_PORT = Symbol('PROJECT_ACCESS_PORT');
+export const PLANNING_REPOSITORY = Symbol('PLANNING_REPOSITORY');
 
 export interface ProjectAccessContext {
   projectId: string;
@@ -28,6 +30,8 @@ export interface NewIssueData {
   priority: string;
   reporterUserId: string;
   assigneeUserId: string | null;
+  epicId: string | null;
+  sprintId: string | null;
 }
 
 export interface UpdateIssueData {
@@ -54,16 +58,19 @@ export interface IssueRepository {
   findIssue(issueId: string): Promise<Issue | null>;
   updateIssue(
     issue: Issue,
+    expectedVersion: number,
     data: UpdateIssueData,
     actorUserId: string,
   ): Promise<Issue>;
   assignIssue(
     issue: Issue,
+    expectedVersion: number,
     assigneeUserId: string | null,
     actorUserId: string,
   ): Promise<Issue>;
   transitionIssue(
     issue: Issue,
+    expectedVersion: number,
     status: string,
     actorUserId: string,
   ): Promise<Issue>;
@@ -77,4 +84,31 @@ export interface IssueRepository {
   pendingEvents(limit: number): Promise<OutboxEvent[]>;
   markEventPublished(eventId: string): Promise<void>;
   recordPublishFailure(eventId: string): Promise<void>;
+}
+
+export interface NewEpicData {
+  projectId: string;
+  name: string;
+  color: string;
+  startDate: string | null;
+  targetDate: string | null;
+}
+
+export interface NewSprintData {
+  projectId: string;
+  name: string;
+  goal: string | null;
+  startDate: string | null;
+  endDate: string | null;
+}
+
+export interface PlanningRepository {
+  createEpic(data: NewEpicData): Promise<Epic>;
+  listEpics(projectId: string): Promise<Epic[]>;
+  findEpic(epicId: string): Promise<Epic | null>;
+  updateEpic(epic: Epic, data: Omit<NewEpicData, 'projectId'>): Promise<Epic>;
+  createSprint(data: NewSprintData): Promise<Sprint>;
+  listSprints(projectId: string): Promise<Sprint[]>;
+  findSprint(sprintId: string): Promise<Sprint | null>;
+  completeSprint(sprint: Sprint): Promise<Sprint>;
 }

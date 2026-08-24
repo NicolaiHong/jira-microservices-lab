@@ -1,0 +1,29 @@
+# Dependencies and generated frontend output
+node_modules/
+.next/
+dist/
+build/
+out/
+coverage/
+*.min.js
+*.map
+
+# Compiled/runtime output
+target/
+bin/
+obj/
+TestResults/
+vendor/
+*.class
+*.exe
+*.dll
+*.pdb
+
+# Repository/tooling state and local data
+.git/
+.codegraphcontext/
+.docker/
+logs/
+*.log
+.env
+.env.*

@@ -20,6 +20,18 @@ public interface IProjectRepository
         string name,
         CancellationToken cancellationToken);
 
+    Task<bool> UpdateActiveAsync(
+        Guid projectId,
+        string name,
+        string? description,
+        DateTimeOffset updatedAt,
+        CancellationToken cancellationToken);
+
+    Task<bool> ArchiveActiveAsync(
+        Guid projectId,
+        DateTimeOffset archivedAt,
+        CancellationToken cancellationToken);
+
     Task AddAsync(
         Project project,
         CancellationToken cancellationToken);

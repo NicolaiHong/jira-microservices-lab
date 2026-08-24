@@ -7,7 +7,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { assignIssue, updateIssue } from "../../api";
+import {
+  assignIssue,
+  isConcurrentIssueModification,
+  updateIssue,
+} from "../../api";
 import { useAddComment, useComments, useHistory } from "../../hooks/useIssue";
 import type { Issue } from "../../types";
 
@@ -17,20 +21,40 @@ export function IssueDetailModal({ issue, issueId }: { issue?: Issue; issueId: s
   const addComment = useAddComment(issueId);
   const queryClient = useQueryClient();
   const update = useMutation({
-    mutationFn: (payload: Parameters<typeof updateIssue>[1]) => updateIssue(issueId, payload),
+    mutationFn: (payload: Parameters<typeof updateIssue>[1]) =>
+      updateIssue(issueId, payload, issue?.version ?? 0),
+    retry: false,
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["issues", issueId] });
       if (issue?.projectId) {
         await queryClient.invalidateQueries({ queryKey: ["issues", issue.projectId] });
       }
     },
+    onError: async (error) => {
+      if (isConcurrentIssueModification(error)) {
+        await queryClient.invalidateQueries({ queryKey: ["issues", issueId] });
+        if (issue?.projectId) {
+          await queryClient.invalidateQueries({ queryKey: ["issues", issue.projectId] });
+        }
+      }
+    },
   });
   const assign = useMutation({
-    mutationFn: (userId: string | null) => assignIssue(issueId, userId),
+    mutationFn: (userId: string | null) =>
+      assignIssue(issueId, userId, issue?.version ?? 0),
+    retry: false,
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["issues", issueId] });
       if (issue?.projectId) {
         await queryClient.invalidateQueries({ queryKey: ["issues", issue.projectId] });
+      }
+    },
+    onError: async (error) => {
+      if (isConcurrentIssueModification(error)) {
+        await queryClient.invalidateQueries({ queryKey: ["issues", issueId] });
+        if (issue?.projectId) {
+          await queryClient.invalidateQueries({ queryKey: ["issues", issue.projectId] });
+        }
       }
     },
   });
@@ -50,7 +74,13 @@ export function IssueDetailModal({ issue, issueId }: { issue?: Issue; issueId: s
         priority: String(form.get("priority")) as Issue["priority"],
       });
       toast.success("Issue updated");
-    } catch { toast.error("Could not update issue"); }
+    } catch (error) {
+      toast.error(
+        isConcurrentIssueModification(error)
+          ? "Issue changed elsewhere. Latest data has been loaded."
+          : "Could not update issue",
+      );
+    }
   }
 
   async function submitAssignment(event: FormEvent<HTMLFormElement>) {
@@ -59,7 +89,13 @@ export function IssueDetailModal({ issue, issueId }: { issue?: Issue; issueId: s
     try {
       await assign.mutateAsync(value || null);
       toast.success(value ? "Assignee updated" : "Issue unassigned");
-    } catch { toast.error("Could not change assignee"); }
+    } catch (error) {
+      toast.error(
+        isConcurrentIssueModification(error)
+          ? "Issue changed elsewhere. Latest data has been loaded."
+          : "Could not change assignee",
+      );
+    }
   }
 
   async function submitComment(event: FormEvent<HTMLFormElement>) {

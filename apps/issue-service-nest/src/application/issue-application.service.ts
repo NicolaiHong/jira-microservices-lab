@@ -1,12 +1,19 @@
 import { Inject, Injectable } from '@nestjs/common';
 import {
   ISSUE_REPOSITORY,
+  PLANNING_REPOSITORY,
   PROJECT_ACCESS_PORT,
   type IssueRepository,
   type ProjectAccessContext,
   type ProjectAccessPort,
+  type PlanningRepository,
 } from './ports';
-import { DomainError, notFound, validationError } from '../domain/errors';
+import {
+  concurrentIssueModification,
+  DomainError,
+  notFound,
+  validationError,
+} from '../domain/errors';
 import {
   ISSUE_PRIORITIES,
   ISSUE_STATUSES,
@@ -32,6 +39,7 @@ export interface RequestContext {
 export class IssueApplicationService {
   constructor(
     @Inject(ISSUE_REPOSITORY) private readonly issues: IssueRepository,
+    @Inject(PLANNING_REPOSITORY) private readonly planning: PlanningRepository,
     @Inject(PROJECT_ACCESS_PORT) private readonly projects: ProjectAccessPort,
   ) {}
 
@@ -44,9 +52,12 @@ export class IssueApplicationService {
     const input = this.body(body);
     const access = await this.requireWritableProject(projectId, context);
     const assigneeUserId = optionalUuid(input.assigneeUserId, 'assigneeUserId');
+    const epicId = optionalUuid(input.epicId, 'epicId');
+    const sprintId = optionalUuid(input.sprintId, 'sprintId');
     if (assigneeUserId) {
       await this.projects.getAccess(projectId, assigneeUserId, context.correlationId);
     }
+    await this.assertPlanningLinks(projectId, epicId, sprintId);
 
     const issue = await this.issues.createIssue({
       projectId,
@@ -57,6 +68,8 @@ export class IssueApplicationService {
       priority: enumValue(input.priority, 'priority', ISSUE_PRIORITIES),
       reporterUserId: context.userId,
       assigneeUserId,
+      epicId,
+      sprintId,
     });
     return { issue };
   }
@@ -79,10 +92,14 @@ export class IssueApplicationService {
     body: unknown,
     context: RequestContext,
   ) {
-    const issue = await this.requireVisibleIssue(issueIdValue, context, true);
     const input = this.body(body);
+    const expectedVersion = this.expectedVersion(input);
+    this.assertCorePatchFields(input);
+    const issue = await this.requireVisibleIssue(issueIdValue, context, true);
+    this.assertExpectedVersion(issue, expectedVersion);
     const updated = await this.issues.updateIssue(
       issue,
+      expectedVersion,
       {
         summary:
           input.summary === undefined
@@ -111,8 +128,10 @@ export class IssueApplicationService {
     body: unknown,
     context: RequestContext,
   ) {
-    const issue = await this.requireVisibleIssue(issueIdValue, context, true);
     const input = this.body(body);
+    const expectedVersion = this.expectedVersion(input);
+    const issue = await this.requireVisibleIssue(issueIdValue, context, true);
+    this.assertExpectedVersion(issue, expectedVersion);
     const assigneeUserId = optionalUuid(input.assigneeUserId, 'assigneeUserId');
     if (assigneeUserId) {
       await this.projects.getAccess(
@@ -125,6 +144,7 @@ export class IssueApplicationService {
     return {
       issue: await this.issues.assignIssue(
         issue,
+        expectedVersion,
         assigneeUserId,
         context.userId,
       ),
@@ -136,15 +156,19 @@ export class IssueApplicationService {
     body: unknown,
     context: RequestContext,
   ) {
+    const input = this.body(body);
+    const expectedVersion = this.expectedVersion(input);
+    const status = enumValue(input.status, 'status', ISSUE_STATUSES);
     const issue = await this.requireVisibleIssue(issueIdValue, context, true);
-    const status = enumValue(
-      this.body(body).status,
-      'status',
-      ISSUE_STATUSES,
-    );
+    this.assertExpectedVersion(issue, expectedVersion);
     assertTransition(issue.status, status);
     return {
-      issue: await this.issues.transitionIssue(issue, status, context.userId),
+      issue: await this.issues.transitionIssue(
+        issue,
+        expectedVersion,
+        status,
+        context.userId,
+      ),
     };
   }
 
@@ -220,6 +244,60 @@ export class IssueApplicationService {
         'PROJECT_ARCHIVED',
         'Archived projects reject issue writes',
       );
+    }
+  }
+
+  private async assertPlanningLinks(
+    projectId: string,
+    epicId: string | null,
+    sprintId: string | null,
+  ): Promise<void> {
+    if (epicId) {
+      const epic = await this.planning.findEpic(epicId);
+      if (!epic || epic.projectId !== projectId) {
+        throw validationError('epicId', 'epicId must belong to this project');
+      }
+    }
+    if (sprintId) {
+      const sprint = await this.planning.findSprint(sprintId);
+      if (!sprint || sprint.projectId !== projectId || sprint.status !== 'ACTIVE') {
+        throw validationError('sprintId', 'sprintId must be an active sprint in this project');
+      }
+    }
+  }
+
+  private expectedVersion(input: Record<string, unknown>): number {
+    const value = input.expectedVersion;
+    if (
+      typeof value !== 'number' ||
+      !Number.isSafeInteger(value) ||
+      value <= 0
+    ) {
+      throw validationError(
+        'expectedVersion',
+        'expectedVersion must be a positive integer',
+      );
+    }
+    return value;
+  }
+
+  private assertExpectedVersion(issue: Issue, expectedVersion: number): void {
+    if (issue.version !== expectedVersion) {
+      throw concurrentIssueModification();
+    }
+  }
+
+  private assertCorePatchFields(input: Record<string, unknown>): void {
+    for (const field of [
+      'reporterUserId',
+      'projectId',
+      'issueKey',
+      'issueNumber',
+      'status',
+    ]) {
+      if (Object.prototype.hasOwnProperty.call(input, field)) {
+        throw validationError(field, `${field} cannot be updated`);
+      }
     }
   }
 

@@ -5,15 +5,39 @@ import {
   NestFastifyApplication,
 } from '@nestjs/platform-fastify';
 import { AppModule } from './app.module';
+import { timingSafeEqual } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import { randomUUID } from 'node:crypto';
 import { DomainExceptionFilter } from './presentation/domain-exception.filter';
 
 async function bootstrap(): Promise<void> {
+  const internalServiceSecret = process.env.INTERNAL_SERVICE_SECRET;
+  if (!internalServiceSecret) {
+    throw new Error('INTERNAL_SERVICE_SECRET is required');
+  }
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
     new FastifyAdapter({ bodyLimit: 1024 * 1024 }),
   );
+  app.getHttpAdapter().getInstance().addHook('onRequest', async (request, reply) => {
+    if (request.url.startsWith('/health')) return;
+    const supplied = request.headers['x-internal-service-secret'];
+    const suppliedBuffer = Buffer.from(
+      typeof supplied === 'string' ? supplied : '',
+      'utf8',
+    );
+    const expectedBuffer = Buffer.from(internalServiceSecret, 'utf8');
+    if (
+      suppliedBuffer.length !== expectedBuffer.length ||
+      !timingSafeEqual(suppliedBuffer, expectedBuffer)
+    ) {
+      reply.code(401).send({
+        code: 'INTERNAL_SERVICE_AUTH_REQUIRED',
+        message: 'Valid internal service credentials are required',
+        details: {},
+      });
+    }
+  });
   app.useGlobalFilters(new DomainExceptionFilter());
   const fastify = app.getHttpAdapter().getInstance() as FastifyInstance;
   fastify.addHook('onRequest', async (request, reply) => {

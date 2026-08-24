@@ -26,14 +26,14 @@ export function RegisterForm() {
   }
 
   return (
-    <Card className="w-full max-w-sm">
-      <CardHeader><CardTitle>Create account</CardTitle><CardDescription>Start a clean workspace and invite your team.</CardDescription></CardHeader>
+    <Card className="auth-card w-full max-w-sm border-0 bg-transparent p-0 shadow-none ring-0">
+      <CardHeader><p className="eyebrow">Begin a new workspace</p><CardTitle className="mt-2 text-4xl font-normal tracking-[-0.045em]">Create account</CardTitle><CardDescription>Bring your projects into one considered place.</CardDescription></CardHeader>
       <CardContent>
         <form className="space-y-4" onSubmit={submit}>
           <div className="space-y-1.5"><label className="text-sm font-medium" htmlFor="email">Email</label><Input id="email" name="email" type="email" required /></div>
           <div className="space-y-1.5"><label className="text-sm font-medium" htmlFor="password">Password</label><Input id="password" minLength={8} name="password" type="password" required /></div>
-          <Button className="w-full" disabled={pending} type="submit">{pending ? "Creating…" : "Create account"}</Button>
-          <p className="text-center text-sm text-muted-foreground">Already registered? <Link className="font-medium text-foreground hover:underline" href="/login">Sign in</Link></p>
+          <Button className="mt-2 w-full" disabled={pending} type="submit">{pending ? "Creating…" : "Create account"}</Button>
+          <p className="text-center text-sm text-muted-foreground">Already registered? <Link className="font-semibold text-foreground underline decoration-foreground/35 underline-offset-4 hover:decoration-foreground" href="/login">Sign in</Link></p>
         </form>
       </CardContent>
     </Card>

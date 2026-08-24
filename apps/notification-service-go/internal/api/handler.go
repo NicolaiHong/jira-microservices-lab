@@ -1,6 +1,7 @@
 package api
 
 import (
+	"crypto/hmac"
 	"encoding/json"
 	"errors"
 	"log"
@@ -12,10 +13,13 @@ import (
 )
 
 type Handler struct {
-	store *store.RedisStore
+	store                 *store.RedisStore
+	internalServiceSecret []byte
 }
 
-func NewHandler(store *store.RedisStore) *Handler { return &Handler{store: store} }
+func NewHandler(store *store.RedisStore, internalServiceSecret string) *Handler {
+	return &Handler{store: store, internalServiceSecret: []byte(internalServiceSecret)}
+}
 
 func (h *Handler) Routes() http.Handler {
 	mux := http.NewServeMux()
@@ -23,7 +27,21 @@ func (h *Handler) Routes() http.Handler {
 	mux.HandleFunc("GET /internal/notifications", h.list)
 	mux.HandleFunc("PATCH /internal/notifications/{notificationId}/read", h.markRead)
 	mux.HandleFunc("POST /internal/notifications/read-all", h.markAllRead)
-	return correlationAndLogging(mux)
+	return correlationAndLogging(internalServiceAuthentication(h.internalServiceSecret, mux))
+}
+
+func internalServiceAuthentication(secret []byte, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/health" {
+			next.ServeHTTP(w, r)
+			return
+		}
+		if len(secret) == 0 || !hmac.Equal(secret, []byte(r.Header.Get("x-internal-service-secret"))) {
+			writeError(w, r, http.StatusUnauthorized, "INTERNAL_SERVICE_AUTH_REQUIRED", "Valid internal service credentials are required")
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 func (h *Handler) health(w http.ResponseWriter, r *http.Request) {

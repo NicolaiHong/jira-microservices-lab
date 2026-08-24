@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 namespace ProjectService.Api;
 
 public sealed record CreateProjectRequest(
@@ -9,9 +11,12 @@ public sealed record CreateProjectResponse(ProjectResponse Project);
 
 public sealed record ListProjectsResponse(IReadOnlyList<ProjectResponse> Items);
 
-public sealed record UpdateProjectRequest(
-    string? Name,
-    string? Description);
+public sealed class UpdateProjectRequest
+{
+    // An omitted JSON property stays Undefined; an explicit JSON null is Null.
+    public JsonElement Name { get; init; }
+    public JsonElement Description { get; init; }
+}
 
 public sealed record UpdateProjectResponse(ProjectResponse Project);
 

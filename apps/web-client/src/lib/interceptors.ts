@@ -15,6 +15,28 @@ interface RetryableRequestConfig extends InternalAxiosRequestConfig {
 }
 
 export function setupInterceptors(instance: AxiosInstance) {
+  let refreshPromise: Promise<AuthResponse> | null = null;
+
+  const refreshSession = () => {
+    if (!refreshPromise) {
+      refreshPromise = axios
+        .post<AuthResponse>(
+          `${apiGatewayUrl}/api/auth/refresh`,
+          undefined,
+          { withCredentials: true },
+        )
+        .then(({ data }) => {
+          useAuthStore.getState().setSession(data);
+          return data;
+        })
+        .finally(() => {
+          refreshPromise = null;
+        });
+    }
+
+    return refreshPromise;
+  };
+
   instance.interceptors.request.use((config) => {
     const token = useAuthStore.getState().accessToken;
 
@@ -44,16 +66,9 @@ export function setupInterceptors(instance: AxiosInstance) {
       ) {
         originalRequest._retry = true;
 
-        const refreshToken = useAuthStore.getState().refreshToken;
-
-        if (refreshToken) {
+        if (useAuthStore.getState().isAuthenticated) {
           try {
-            const { data } = await axios.post<AuthResponse>(
-              `${apiGatewayUrl}/api/auth/refresh`,
-              { refreshToken },
-            );
-
-            useAuthStore.getState().setSession(data);
+            const data = await refreshSession();
             originalRequest.headers.Authorization = `Bearer ${data.accessToken}`;
 
             return instance(originalRequest);

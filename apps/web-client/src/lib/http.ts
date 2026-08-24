@@ -7,6 +7,7 @@ export const apiGatewayUrl =
 
 export const http = axios.create({
   baseURL: apiGatewayUrl,
+  withCredentials: true,
   headers: {
     "Content-Type": "application/json",
   },

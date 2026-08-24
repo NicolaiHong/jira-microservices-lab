@@ -79,10 +79,6 @@ namespace ProjectService.Infrastructure.Data.Migrations
                         .IsUnique()
                         .HasDatabaseName("ux_projects_workspace_id_key");
 
-                    b.HasIndex("WorkspaceId", "Name")
-                        .IsUnique()
-                        .HasDatabaseName("ux_projects_workspace_id_name");
-
                     b.ToTable("projects", null, t =>
                         {
                             t.HasCheckConstraint("ck_projects_status", "status IN ('ACTIVE', 'ARCHIVED')");

@@ -10,17 +10,21 @@ correlation="smoke-${suffix}"
 project_key="S${suffix: -5}"
 
 call_api() {
-  local method="$1" path="$2" body="$3" token="${4:-}"
+  local method="$1" path="$2" body="$3" token="${4:-}" cookie_jar="${5:-}"
   local args=(-sS -f -X "$method" -H "x-correlation-id: $correlation")
   [[ -n "$token" ]] && args+=(-H "authorization: Bearer $token")
+  [[ -n "$cookie_jar" ]] && args+=(-b "$cookie_jar" -c "$cookie_jar")
   [[ -n "$body" ]] && args+=(-H "content-type: application/json" -d "$body")
   curl "${args[@]}" "$gateway_url$path"
 }
 
 owner="$(call_api POST /api/auth/register "{\"email\":\"$owner_email\",\"password\":\"$password\"}")"
 member="$(call_api POST /api/auth/register "{\"email\":\"$member_email\",\"password\":\"$password\"}")"
-owner_session="$(call_api POST /api/auth/login "{\"email\":\"$owner_email\",\"password\":\"$password\"}")"
-member_session="$(call_api POST /api/auth/login "{\"email\":\"$member_email\",\"password\":\"$password\"}")"
+owner_cookie="$(mktemp)"
+member_cookie="$(mktemp)"
+trap 'rm -f "$owner_cookie" "$member_cookie"' EXIT
+owner_session="$(call_api POST /api/auth/login "{\"email\":\"$owner_email\",\"password\":\"$password\"}" '' "$owner_cookie")"
+member_session="$(call_api POST /api/auth/login "{\"email\":\"$member_email\",\"password\":\"$password\"}" '' "$member_cookie")"
 owner_token="$(jq -r .accessToken <<<"$owner_session")"
 member_token="$(jq -r .accessToken <<<"$member_session")"
 member_id="$(jq -r .user.id <<<"$member")"
@@ -44,7 +48,7 @@ notification_id="$(jq -r '.items[0].id // empty' <<<"$notifications")"
 [[ -n "$notification_id" ]] || { echo "No Kafka notification arrived" >&2; exit 1; }
 call_api PATCH "/api/notifications/$notification_id/read" '' "$member_token" >/dev/null
 
-rotated_session="$(call_api POST /api/auth/refresh "$(jq -cn --arg token "$(jq -r .refreshToken <<<"$owner_session")" '{refreshToken: $token}')")"
+rotated_session="$(call_api POST /api/auth/refresh '' '' "$owner_cookie")"
 [[ -n "$(jq -r '.accessToken // empty' <<<"$rotated_session")" ]] || { echo "Refresh token rotation failed" >&2; exit 1; }
 
 echo "Full smoke flow passed: workspace=$workspace_id project=$project_id issue=$issue_id correlation=$correlation"

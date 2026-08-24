@@ -14,6 +14,9 @@ async function bootstrap(): Promise<void> {
     new FastifyAdapter({ bodyLimit: 1024 * 1024 }),
   );
   const port = Number(process.env.PORT ?? 3000);
+  if (!process.env.INTERNAL_SERVICE_SECRET) {
+    throw new Error('INTERNAL_SERVICE_SECRET is required');
+  }
   const allowedOrigins = (
     process.env.CORS_ALLOWED_ORIGINS ?? 'http://localhost:3001'
   )
@@ -27,6 +30,7 @@ async function bootstrap(): Promise<void> {
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['content-type', 'authorization', 'x-correlation-id'],
     exposedHeaders: ['x-correlation-id'],
+    credentials: true,
   });
   configureHttpObservability(app);
 

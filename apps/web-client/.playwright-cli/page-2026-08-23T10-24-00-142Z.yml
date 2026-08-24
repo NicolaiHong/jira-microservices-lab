@@ -1,0 +1,31 @@
+- generic [active] [ref=e1]:
+  - main [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e4]:
+        - generic [ref=e6]:
+          - link "LATTICE" [ref=e7] [cursor=pointer]:
+            - /url: /projects
+          - generic [ref=e10]: WORKSPACE SYSTEM
+        - generic [ref=e11]:
+          - paragraph [ref=e12]: Intentional work, clearly arranged
+          - heading "Make the work feel considered." [level=1] [ref=e13]
+          - paragraph [ref=e14]: A quiet command center for the projects, decisions, and details that move your team forward.
+        - paragraph [ref=e15]: Built for focused collaboration
+      - generic [ref=e20]:
+        - generic [ref=e21]:
+          - paragraph [ref=e22]: Welcome back
+          - generic [ref=e23]: Sign in
+          - generic [ref=e24]: Pick up where the important work left off.
+        - generic [ref=e26]:
+          - generic [ref=e27]:
+            - generic [ref=e28]: Email
+            - textbox "Email" [ref=e29]
+          - generic [ref=e30]:
+            - generic [ref=e31]: Password
+            - textbox "Password" [ref=e32]
+          - button "Sign in" [ref=e33]
+          - paragraph [ref=e34]:
+            - text: New here?
+            - link "Create an account" [ref=e35] [cursor=pointer]:
+              - /url: /register
+  - region "Notifications alt+T"

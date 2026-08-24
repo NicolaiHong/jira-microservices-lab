@@ -14,7 +14,8 @@ function Invoke-Gateway {
         [string]$Method,
         [string]$Path,
         [object]$Body,
-        [string]$Token
+        [string]$Token,
+        [Microsoft.PowerShell.Commands.WebRequestSession]$WebSession
     )
     $headers = @{ "x-correlation-id" = "smoke-$suffix" }
     if ($Token) { $headers.Authorization = "Bearer $Token" }
@@ -28,6 +29,9 @@ function Invoke-Gateway {
         $parameters.ContentType = "application/json"
         $parameters.Body = $Body | ConvertTo-Json -Depth 8
     }
+    if ($null -ne $WebSession) {
+        $parameters.WebSession = $WebSession
+    }
     Invoke-RestMethod @parameters
 }
 
@@ -36,8 +40,10 @@ $owner = Invoke-Gateway POST "/api/auth/register" @{ email = $ownerEmail; passwo
 $member = Invoke-Gateway POST "/api/auth/register" @{ email = $memberEmail; password = $password } ""
 
 Write-Host "2/10 Login both users"
-$ownerSession = Invoke-Gateway POST "/api/auth/login" @{ email = $ownerEmail; password = $password } ""
-$memberSession = Invoke-Gateway POST "/api/auth/login" @{ email = $memberEmail; password = $password } ""
+$ownerWebSession = [Microsoft.PowerShell.Commands.WebRequestSession]::new()
+$memberWebSession = [Microsoft.PowerShell.Commands.WebRequestSession]::new()
+$ownerSession = Invoke-Gateway POST "/api/auth/login" @{ email = $ownerEmail; password = $password } "" $ownerWebSession
+$memberSession = Invoke-Gateway POST "/api/auth/login" @{ email = $memberEmail; password = $password } "" $memberWebSession
 
 Write-Host "3/10 Create workspace"
 $workspaceResult = Invoke-Gateway POST "/api/workspaces" @{ name = "Smoke Workspace $suffix"; slug = "smoke-$suffix" } $ownerSession.accessToken
@@ -73,7 +79,7 @@ if ($notifications.items.Count -eq 0) { throw "No notification arrived through K
 
 Write-Host "10/10 Mark notification read and rotate session"
 Invoke-Gateway PATCH "/api/notifications/$($notifications.items[0].id)/read" $null $memberSession.accessToken | Out-Null
-$rotated = Invoke-Gateway POST "/api/auth/refresh" @{ refreshToken = $ownerSession.refreshToken } ""
+$rotated = Invoke-Gateway POST "/api/auth/refresh" $null "" $ownerWebSession
 if (-not $rotated.accessToken) { throw "Refresh token rotation failed" }
 
 Write-Host "Full synchronous + asynchronous smoke flow passed" -ForegroundColor Green

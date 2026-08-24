@@ -12,6 +12,7 @@ export class IssueServiceAdapter {
   private readonly baseUrl = (
     process.env.ISSUE_SERVICE_URL ?? 'http://localhost:8083'
   ).replace(/\/+$/, '');
+  private readonly internalServiceSecret = process.env.INTERNAL_SERVICE_SECRET ?? '';
 
   createIssue(projectId: string, body: unknown, context: ProjectServiceRequestContext) {
     return this.forward('POST', `/internal/projects/${this.id(projectId)}/issues`, body, context);
@@ -40,6 +41,24 @@ export class IssueServiceAdapter {
   listHistory(issueId: string, context: ProjectServiceRequestContext) {
     return this.forward('GET', `/internal/issues/${this.id(issueId)}/history`, undefined, context);
   }
+  listEpics(projectId: string, context: ProjectServiceRequestContext) {
+    return this.forward('GET', `/internal/projects/${this.id(projectId)}/epics`, undefined, context);
+  }
+  createEpic(projectId: string, body: unknown, context: ProjectServiceRequestContext) {
+    return this.forward('POST', `/internal/projects/${this.id(projectId)}/epics`, body, context);
+  }
+  updateEpic(epicId: string, body: unknown, context: ProjectServiceRequestContext) {
+    return this.forward('PATCH', `/internal/epics/${this.id(epicId)}`, body, context);
+  }
+  listSprints(projectId: string, context: ProjectServiceRequestContext) {
+    return this.forward('GET', `/internal/projects/${this.id(projectId)}/sprints`, undefined, context);
+  }
+  createSprint(projectId: string, body: unknown, context: ProjectServiceRequestContext) {
+    return this.forward('POST', `/internal/projects/${this.id(projectId)}/sprints`, body, context);
+  }
+  completeSprint(sprintId: string, context: ProjectServiceRequestContext) {
+    return this.forward('POST', `/internal/sprints/${this.id(sprintId)}/complete`, undefined, context);
+  }
 
   private async forward(
     method: 'GET' | 'POST' | 'PATCH',
@@ -63,6 +82,7 @@ export class IssueServiceAdapter {
           ...(hasBody ? { 'content-type': 'application/json' } : {}),
           'x-authenticated-user-id': context.userId,
           'x-correlation-id': context.correlationId,
+          'x-internal-service-secret': this.internalServiceSecret,
         },
         body: hasBody ? JSON.stringify(body ?? {}) : undefined,
       });
