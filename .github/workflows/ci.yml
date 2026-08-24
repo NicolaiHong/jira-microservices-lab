@@ -67,5 +67,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: docker compose -f infra/docker-compose/docker-compose.yml config --quiet
+      - name: Validate Compose configuration
+        env:
+          # This job only interpolates the Compose file; it does not start services.
+          INTERNAL_SERVICE_SECRET: ci-compose-contract-placeholder
+        run: docker compose -f infra/docker-compose/docker-compose.yml config --quiet
       - run: jq empty contracts/events/issue-event-v1.schema.json contracts/health.schema.json
