@@ -4,22 +4,57 @@ import {
   assertTransition,
   enumValue,
   ISSUE_PRIORITIES,
+  ISSUE_TYPES,
   optionalText,
   requiredText,
+  type Issue,
+  type IssueStatus,
 } from './issue';
 import { DomainError } from './errors';
 
-test('allows the fixed forward workflow', () => {
-  assert.doesNotThrow(() => assertTransition('TODO', 'IN_PROGRESS'));
-  assert.doesNotThrow(() => assertTransition('IN_PROGRESS', 'DONE'));
+const validTransitions: Array<[IssueStatus, IssueStatus]> = [
+  ['TODO', 'IN_PROGRESS'],
+  ['IN_PROGRESS', 'TODO'],
+  ['IN_PROGRESS', 'DONE'],
+  ['DONE', 'IN_PROGRESS'],
+];
+
+test('issues use the complete fixed workflow', () => {
+  for (const [from, to] of validTransitions) {
+    const transition = assertTransition(from, to);
+    assert.equal(transition.from, from);
+    assert.equal(transition.to, to);
+  }
 });
 
-test('rejects skipping directly from TODO to DONE', () => {
-  assert.throws(
-    () => assertTransition('TODO', 'DONE'),
-    (error: unknown) =>
-      error instanceof DomainError && error.code === 'INVALID_ISSUE_TRANSITION',
-  );
+test('rejects invalid and same-state workflow edges', () => {
+  for (const [from, to] of [
+    ['TODO', 'DONE'],
+    ['DONE', 'TODO'],
+    ['TODO', 'TODO'],
+    ['IN_PROGRESS', 'IN_PROGRESS'],
+    ['DONE', 'DONE'],
+  ] as Array<[IssueStatus, IssueStatus]>) {
+    assert.throws(
+      () => assertTransition(from, to),
+      (error: unknown) =>
+        error instanceof DomainError && error.code === 'INVALID_ISSUE_TRANSITION',
+    );
+  }
+});
+
+test('TASK, BUG, and STORY all use the same fixed workflow', () => {
+  for (const type of ISSUE_TYPES) {
+    const issue = { type, status: 'TODO' } as Pick<Issue, 'type' | 'status'>;
+    const transition = assertTransition(issue.status, 'IN_PROGRESS');
+    assert.equal(transition.to, 'IN_PROGRESS', type);
+    assert.throws(
+      () => assertTransition(issue.status, 'DONE'),
+      (error: unknown) =>
+        error instanceof DomainError && error.code === 'INVALID_ISSUE_TRANSITION',
+      type,
+    );
+  }
 });
 
 test('normalizes enum values at the domain boundary', () => {

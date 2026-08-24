@@ -16,12 +16,17 @@ export type IssueDetailsUpdate = Partial<
   Pick<Issue, "summary" | "description" | "type" | "priority">
 >;
 
+export function getIssueErrorCode(error: unknown): string | undefined {
+  if (!axios.isAxiosError(error)) {
+    return undefined;
+  }
+
+  const code = error.response?.data?.code;
+  return typeof code === "string" ? code : undefined;
+}
+
 export function isConcurrentIssueModification(error: unknown): boolean {
-  return (
-    axios.isAxiosError(error) &&
-    error.response?.status === 409 &&
-    error.response.data?.code === "CONCURRENT_ISSUE_MODIFICATION"
-  );
+  return getIssueErrorCode(error) === "CONCURRENT_ISSUE_MODIFICATION";
 }
 
 export async function listIssues(projectId: string): Promise<Issue[]> {

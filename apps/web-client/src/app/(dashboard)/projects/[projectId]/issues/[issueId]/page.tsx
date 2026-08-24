@@ -4,10 +4,12 @@ import { useParams } from "next/navigation";
 
 import { IssueDetailModal } from "@/features/issue/components/IssueDetailModal";
 import { useIssue } from "@/features/issue/hooks/useIssue";
+import { useProject } from "@/features/project/hooks/useProjects";
 
 export default function IssueDetailPage() {
-  const { issueId } = useParams<{ projectId: string; issueId: string }>();
+  const { issueId } = useParams<{ issueId: string }>();
   const issueQuery = useIssue(issueId);
+  const projectQuery = useProject(issueQuery.data?.projectId);
 
   return (
     <section className="flex flex-col gap-4">
@@ -16,7 +18,11 @@ export default function IssueDetailPage() {
           Loading issue...
         </p>
       ) : (
-        <IssueDetailModal issue={issueQuery.data} issueId={issueId} />
+        <IssueDetailModal
+          isProjectWritable={projectQuery.data?.status === "ACTIVE"}
+          issue={issueQuery.data}
+          issueId={issueId}
+        />
       )}
     </section>
   );

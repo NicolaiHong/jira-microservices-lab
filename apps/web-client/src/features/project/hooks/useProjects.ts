@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   createProject,
   createWorkspace,
+  getProject,
   listProjects,
   listWorkspaces,
 } from "../api";
@@ -18,6 +19,14 @@ export function useProjects(workspaceId?: string) {
     queryKey: ["projects", workspaceId],
     queryFn: () => listProjects(workspaceId as string),
     enabled: Boolean(workspaceId),
+  });
+}
+
+export function useProject(projectId?: string) {
+  return useQuery({
+    queryKey: ["project", projectId],
+    queryFn: () => getProject(projectId as string),
+    enabled: Boolean(projectId),
   });
 }
 

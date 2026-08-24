@@ -23,9 +23,10 @@ An issue command through the Gateway.
 1. Gateway validates JWT and forwards identity/correlation ID to Issue Service.
 2. Issue Service asks Project Service for caller access and project status.
 3. Creation validates issue content/links and allocates a project sequence/key.
-4. Core details, assignment, and transition commands require a positive integer `expectedVersion`. Issue Service performs an early loaded-version conflict check and an authoritative PostgreSQL compare-and-swap update in `issue_db`.
-5. It writes action history and an outbox event in the same transaction.
-6. Publisher emits the event asynchronously.
+4. A real core-detail PATCH, assignment, and transition require a positive safe-integer `expectedVersion`. Issue Service performs a loaded-version conflict check and an authoritative PostgreSQL compare-and-swap update in `issue_db`.
+5. A core PATCH with no mutable detail fields is a visibility-only read: it may validate a supplied `expectedVersion` syntactically, but does not require an active Project and has no CAS, version, history, or outbox side effect.
+6. It writes action history and an outbox event in the same transaction.
+7. Publisher emits the event asynchronously.
 
 ## Alternative Flows
 
@@ -35,11 +36,11 @@ Assignee is optional; a nonempty assignee ID must pass Project access lookup.
 
 ### A2 — Transition
 
-The requested status must be a permitted next state.
+The requested status must be a permitted next state. The transition graph is shared by `TASK`, `BUG`, and `STORY`; every visible `MEMBER`, `ADMIN`, and `OWNER` may use it on an active Project.
 
 ## Failure / Error Flows
 
-Invalid UUID/content/status/link, inaccessible issue/project, archived project, stale version, invalid transition, or unavailable Project Service are rejected. A stale core mutation returns `409 CONCURRENT_ISSUE_MODIFICATION` without Issue/history/outbox side effects.
+Invalid UUID/content/status/link, inaccessible issue/project, archived project, stale version, invalid transition, or unavailable Project Service are rejected. A stale core mutation returns `409 CONCURRENT_ISSUE_MODIFICATION` without Issue/history/outbox side effects. An archived-project Issue remains readable, but a transition returns `409 PROJECT_ARCHIVED` before expected-version or graph checks.
 
 ## Business Rules
 
@@ -78,7 +79,7 @@ See [issues API](../api/issues.md) and [status reference](../reference/status-re
 
 ## Edge Cases
 
-Issue status `DONE` does not lock further edits/comments/reopening. There is no issue delete endpoint.
+Issue status `DONE` does not lock further edits/comments/reopening; there is no terminal state. There is no issue delete endpoint. Project access is checked synchronously immediately before a write, but archive/membership cannot be atomically locked across Project and Issue databases; this accepted TOCTOU boundary does not weaken Issue-local CAS.
 
 ## Acceptance Criteria
 

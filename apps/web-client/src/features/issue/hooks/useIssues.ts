@@ -6,7 +6,7 @@ import {
   createEpic,
   createIssue,
   createSprint,
-  isConcurrentIssueModification,
+  getIssueErrorCode,
   listEpics,
   listIssues,
   listSprints,
@@ -58,6 +58,12 @@ export function useCompleteSprint(projectId: string) {
 
 export function useTransitionIssue(projectId: string) {
   const queryClient = useQueryClient();
+
+  function invalidateIssueQueries(issueId: string) {
+    queryClient.invalidateQueries({ queryKey: ["issues", projectId] });
+    queryClient.invalidateQueries({ queryKey: ["issues", issueId] });
+  }
+
   return useMutation({
     mutationFn: ({
       issueId,
@@ -70,13 +76,13 @@ export function useTransitionIssue(projectId: string) {
     }) => transitionIssue(issueId, status, expectedVersion),
     retry: false,
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["issues", projectId] });
-      queryClient.invalidateQueries({ queryKey: ["issues", variables.issueId] });
+      invalidateIssueQueries(variables.issueId);
     },
     onError: (error, variables) => {
-      if (isConcurrentIssueModification(error)) {
-        queryClient.invalidateQueries({ queryKey: ["issues", projectId] });
-        queryClient.invalidateQueries({ queryKey: ["issues", variables.issueId] });
+      invalidateIssueQueries(variables.issueId);
+
+      if (getIssueErrorCode(error) === "PROJECT_ARCHIVED") {
+        queryClient.invalidateQueries({ queryKey: ["project", projectId] });
       }
     },
   });

@@ -93,8 +93,15 @@ export class IssueApplicationService {
     context: RequestContext,
   ) {
     const input = this.body(body);
-    const expectedVersion = this.expectedVersion(input);
     this.assertCorePatchFields(input);
+    if (!this.hasCorePatchMutation(input)) {
+      if (Object.prototype.hasOwnProperty.call(input, 'expectedVersion')) {
+        this.expectedVersion(input);
+      }
+      return { issue: await this.requireVisibleIssue(issueIdValue, context) };
+    }
+
+    const expectedVersion = this.expectedVersion(input);
     const issue = await this.requireVisibleIssue(issueIdValue, context, true);
     this.assertExpectedVersion(issue, expectedVersion);
     const updated = await this.issues.updateIssue(
@@ -157,16 +164,16 @@ export class IssueApplicationService {
     context: RequestContext,
   ) {
     const input = this.body(body);
-    const expectedVersion = this.expectedVersion(input);
     const status = enumValue(input.status, 'status', ISSUE_STATUSES);
     const issue = await this.requireVisibleIssue(issueIdValue, context, true);
+    const expectedVersion = this.expectedVersion(input);
     this.assertExpectedVersion(issue, expectedVersion);
-    assertTransition(issue.status, status);
+    const transition = assertTransition(issue.status, status);
     return {
       issue: await this.issues.transitionIssue(
         issue,
         expectedVersion,
-        status,
+        transition,
         context.userId,
       ),
     };
@@ -289,16 +296,24 @@ export class IssueApplicationService {
 
   private assertCorePatchFields(input: Record<string, unknown>): void {
     for (const field of [
+      'status',
+      'key',
+      'number',
       'reporterUserId',
       'projectId',
       'issueKey',
       'issueNumber',
-      'status',
     ]) {
       if (Object.prototype.hasOwnProperty.call(input, field)) {
         throw validationError(field, `${field} cannot be updated`);
       }
     }
+  }
+
+  private hasCorePatchMutation(input: Record<string, unknown>): boolean {
+    return ['summary', 'description', 'type', 'priority'].some((field) =>
+      Object.prototype.hasOwnProperty.call(input, field),
+    );
   }
 
   private body(value: unknown): Record<string, unknown> {

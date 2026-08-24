@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
 import { IssuesService } from '../../services/issues.service';
 import { getCorrelationId } from '../common/errors/correlation-id';
 import type { AuthenticatedRequest } from '../common/guards/authenticated-request';
@@ -35,6 +35,7 @@ export class IssuesController {
   }
 
   @Post('issues/:issueId/transitions')
+  @HttpCode(200)
   transitionIssue(@Param('issueId') issueId: string, @Body() body: unknown, @Req() request: AuthenticatedRequest) {
     return this.issues.transitionIssue(issueId, body, request.user?.userId, getCorrelationId(request));
   }
