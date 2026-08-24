@@ -65,5 +65,9 @@ tests/
 !tests/**/*.cs
 !tests/**/*.csproj
 
+# Keep the Project Service test suite local.
+tests/project-service-dotnet-tests/
+
 # Keep Markdown documentation local.
 *.md
+!/README.md
