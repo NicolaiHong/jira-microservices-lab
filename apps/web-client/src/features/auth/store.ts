@@ -6,14 +6,12 @@ const STORAGE_KEY = "jira-like-web-client.session";
 
 interface PersistedSession {
   accessToken: string;
-  refreshToken?: string | null;
   user: User;
 }
 
 interface AuthState {
   user: User | null;
   accessToken: string | null;
-  refreshToken: string | null;
   isAuthenticated: boolean;
   isHydrated: boolean;
   hydrate: () => void;
@@ -24,7 +22,6 @@ interface AuthState {
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   accessToken: null,
-  refreshToken: null,
   isAuthenticated: false,
   isHydrated: false,
   hydrate: () => {
@@ -44,11 +41,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       set({
         accessToken: session.accessToken,
-        refreshToken: session.refreshToken ?? null,
         user: session.user,
         isAuthenticated: Boolean(session.accessToken && session.user),
         isHydrated: true,
       });
+      window.localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({ accessToken: session.accessToken, user: session.user }),
+      );
     } catch {
       window.localStorage.removeItem(STORAGE_KEY);
       set({ isHydrated: true });
@@ -57,7 +57,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   setSession: (session) => {
     const nextSession = {
       accessToken: session.accessToken,
-      refreshToken: session.refreshToken ?? null,
       user: session.user,
     };
 
@@ -78,7 +77,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     set({
       accessToken: null,
-      refreshToken: null,
       user: null,
       isAuthenticated: false,
       isHydrated: true,

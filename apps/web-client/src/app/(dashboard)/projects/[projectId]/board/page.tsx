@@ -2,31 +2,20 @@
 
 import { useParams } from "next/navigation";
 
-import { Board } from "@/features/issue/components/Board";
-import { useIssues } from "@/features/issue/hooks/useIssues";
-import { IssueForm } from "@/features/issue/components/IssueForm";
+import { BoardScreen } from "@/features/issue/components/Board";
+import { ProjectNavigation } from "@/components/shared/ProjectNavigation";
 
 export default function ProjectBoardPage() {
   const { projectId } = useParams<{ projectId: string }>();
-  const issuesQuery = useIssues(projectId);
-  const issues = issuesQuery.data ?? [];
 
   return (
     <section className="flex flex-col gap-4">
       <div>
-        <h1 className="text-2xl font-semibold tracking-normal">Board</h1>
-        <p className="text-sm text-muted-foreground">Project {projectId}</p>
+        <p className="text-xs text-muted-foreground">Projects / Orbit Launch</p>
+        <h1 className="mt-1 text-2xl font-semibold tracking-tight">Sprint board</h1>
       </div>
-      <IssueForm projectId={projectId} />
-      {issuesQuery.isPending ? (
-        <p className="rounded-lg border bg-background p-4 text-sm text-muted-foreground">
-          Loading board...
-        </p>
-      ) : issuesQuery.isError ? (
-        <Board issues={[]} projectId={projectId} />
-      ) : (
-        <Board issues={issues} projectId={projectId} />
-      )}
+      <ProjectNavigation projectId={projectId} />
+      <BoardScreen projectId={projectId} />
     </section>
   );
 }

@@ -10,7 +10,9 @@ public sealed record CreateProjectResult(ProjectResult Project);
 public sealed record ListProjectsResult(IReadOnlyList<ProjectResult> Items);
 
 public sealed record UpdateProjectCommand(
+    bool HasName,
     string? Name,
+    bool HasDescription,
     string? Description);
 
 public sealed record UpdateProjectResult(ProjectResult Project);

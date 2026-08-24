@@ -64,7 +64,7 @@ public sealed class CreateProjectUseCase(
             throw ProjectNameAlreadyExists();
         }
 
-        var now = DateTimeOffset.UtcNow;
+        var now = PostgresTimestamp.UtcNow();
         var project = new Project
         {
             Id = Guid.NewGuid(),

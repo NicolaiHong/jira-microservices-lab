@@ -11,6 +11,7 @@ export class ProjectAccessHttpClient implements ProjectAccessPort {
   private readonly baseUrl = (
     process.env.PROJECT_SERVICE_URL ?? 'http://localhost:8082'
   ).replace(/\/+$/, '');
+  private readonly internalServiceSecret = process.env.INTERNAL_SERVICE_SECRET ?? '';
 
   async getAccess(
     projectId: string,
@@ -32,6 +33,7 @@ export class ProjectAccessHttpClient implements ProjectAccessPort {
             accept: 'application/json',
             'x-authenticated-user-id': userId,
             'x-correlation-id': correlationId,
+            'x-internal-service-secret': this.internalServiceSecret,
           },
         },
       );

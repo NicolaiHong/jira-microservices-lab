@@ -33,9 +33,14 @@ func main() {
 	)
 	go eventConsumer.Run(ctx)
 
+	internalServiceSecret := env("INTERNAL_SERVICE_SECRET", "")
+	if internalServiceSecret == "" {
+		log.Fatal("INTERNAL_SERVICE_SECRET is required")
+	}
+
 	server := &http.Server{
 		Addr:              "0.0.0.0:" + env("PORT", "8084"),
-		Handler:           api.NewHandler(redisStore).Routes(),
+		Handler:           api.NewHandler(redisStore, internalServiceSecret).Routes(),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       10 * time.Second,
 		WriteTimeout:      10 * time.Second,

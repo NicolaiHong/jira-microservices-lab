@@ -138,9 +138,6 @@ public sealed class ProjectDbContext(DbContextOptions<ProjectDbContext> options)
             entity.HasIndex(project => new { project.WorkspaceId, project.Key })
                 .IsUnique()
                 .HasDatabaseName("ux_projects_workspace_id_key");
-            entity.HasIndex(project => new { project.WorkspaceId, project.Name })
-                .IsUnique()
-                .HasDatabaseName("ux_projects_workspace_id_name");
         });
     }
 }

@@ -22,7 +22,7 @@ export function useAuth() {
   });
 
   const logoutMutation = useMutation({
-    mutationFn: () => logout(auth.refreshToken),
+    mutationFn: logout,
     onSettled: () => {
       auth.clearSession();
     },

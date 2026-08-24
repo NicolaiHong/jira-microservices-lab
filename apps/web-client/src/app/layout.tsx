@@ -14,9 +14,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Jira-like Web Client",
+  title: "Orbit — Project management",
   description:
-    "Client-rendered dashboard shell for the Jira-like microservices system.",
+    "Project planning and delivery workspace for the Polyglot microservices system.",
 };
 
 export default function RootLayout({

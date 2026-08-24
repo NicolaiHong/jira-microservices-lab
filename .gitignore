@@ -43,6 +43,10 @@ TestResults/
 docker-compose.override.yml
 .docker/
 
+# Local CodeGraphContext database and cache
+.codegraphcontext/
+.codex/
+
 # Logs
 logs/
 *.log
@@ -55,9 +59,22 @@ tests/
 *.test.*
 *.spec.*
 
-# Local documentation
-docs/
+# Keep test source and project definitions under version control; generated test
+# outputs remain covered by the rules above.
+!tests/
+!tests/**/*.cs
+!tests/**/*.csproj
+!apps/api-gateway-nest/src/**/*.spec.ts
+!apps/issue-service-nest/src/**/*.spec.ts
+!apps/web-client/src/**/*.test.ts
+!apps/web-client/src/**/*.test.tsx
+!apps/web-client/src/test/
+!apps/web-client/src/test/**/*.ts
 
-# Keep only the root project overview on GitHub. Other Markdown is local learning notes.
+# Keep Markdown focused on canonical docs and agent guidance.
 *.md
 !/README.md
+!docs/
+!docs/**
+!AGENTS.md
+!CLAUDE.md

@@ -1,6 +1,8 @@
 export type IssueStatus = "TODO" | "IN_PROGRESS" | "DONE";
 export type IssuePriority = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
 export type IssueType = "TASK" | "BUG" | "STORY";
+export type EpicColor = "PURPLE" | "BLUE" | "GREEN" | "YELLOW" | "ORANGE";
+export type SprintStatus = "ACTIVE" | "COMPLETED";
 
 export interface Issue {
   id: string;
@@ -14,6 +16,8 @@ export interface Issue {
   status: IssueStatus;
   reporterUserId: string;
   assigneeUserId: string | null;
+  epicId: string | null;
+  sprintId: string | null;
   version: number;
   createdAt: string;
   updatedAt: string;
@@ -44,4 +48,43 @@ export interface CreateIssuePayload {
   type: IssueType;
   priority: IssuePriority;
   assigneeUserId?: string;
+  epicId?: string;
+  sprintId?: string;
+}
+
+export interface Epic {
+  id: string;
+  projectId: string;
+  name: string;
+  color: EpicColor;
+  startDate: string | null;
+  targetDate: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Sprint {
+  id: string;
+  projectId: string;
+  name: string;
+  goal: string | null;
+  startDate: string | null;
+  endDate: string | null;
+  status: SprintStatus;
+  createdAt: string;
+  completedAt: string | null;
+}
+
+export interface CreateEpicPayload {
+  name: string;
+  color?: EpicColor;
+  startDate?: string;
+  targetDate?: string;
+}
+
+export interface CreateSprintPayload {
+  name: string;
+  goal?: string;
+  startDate?: string;
+  endDate?: string;
 }

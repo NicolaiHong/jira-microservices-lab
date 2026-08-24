@@ -18,6 +18,7 @@ export class ProjectServiceAdapter {
   private readonly projectServiceUrl = (
     process.env.PROJECT_SERVICE_URL ?? 'http://localhost:8082'
   ).replace(/\/+$/, '');
+  private readonly internalServiceSecret = process.env.INTERNAL_SERVICE_SECRET ?? '';
 
   createWorkspace(
     body: unknown,
@@ -163,6 +164,7 @@ export class ProjectServiceAdapter {
           ...(hasRequestBody ? { 'content-type': 'application/json' } : {}),
           'x-authenticated-user-id': context.userId,
           'x-correlation-id': context.correlationId,
+          'x-internal-service-secret': this.internalServiceSecret,
         },
         body: hasRequestBody ? JSON.stringify(body ?? {}) : undefined,
       });

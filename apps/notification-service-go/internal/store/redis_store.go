@@ -35,34 +35,28 @@ func (s *RedisStore) Ping(ctx context.Context) error {
 
 func (s *RedisStore) SaveEventNotifications(
 	ctx context.Context,
-	event domain.IssueEvent,
 	notifications []domain.Notification,
 ) error {
-	processedKey := "notification:event:" + event.EventID
-	claimed, err := s.client.SetNX(ctx, processedKey, "processing", 24*time.Hour).Result()
-	if err != nil || !claimed {
-		return err
-	}
-
 	pipe := s.client.TxPipeline()
 	for _, notification := range notifications {
 		key := notificationKey(notification.UserID, notification.ID)
-		pipe.HSet(ctx, key, map[string]any{
+		fields := map[string]any{
 			"id": notification.ID, "userId": notification.UserID,
 			"eventId": notification.EventID, "type": notification.Type,
 			"title": notification.Title, "body": notification.Body,
 			"issueId": notification.IssueID, "projectId": notification.ProjectID,
 			"createdAt": notification.CreatedAt.Format(time.RFC3339Nano), "readAt": "",
-		})
+		}
+		for field, value := range fields {
+			pipe.HSetNX(ctx, key, field, value)
+		}
 		pipe.Expire(ctx, key, 90*24*time.Hour)
 		pipe.ZAdd(ctx, userIndex(notification.UserID), redis.Z{
 			Score: float64(notification.CreatedAt.UnixMilli()), Member: notification.ID,
 		})
 		pipe.Expire(ctx, userIndex(notification.UserID), 90*24*time.Hour)
 	}
-	pipe.Set(ctx, processedKey, "done", 90*24*time.Hour)
-	if _, err = pipe.Exec(ctx); err != nil {
-		_ = s.client.Del(ctx, processedKey).Err()
+	if _, err := pipe.Exec(ctx); err != nil {
 		return err
 	}
 	return nil

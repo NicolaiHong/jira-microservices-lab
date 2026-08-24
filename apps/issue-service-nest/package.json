@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
-    "test": "node --test --require ts-node/register src/domain/issue.spec.ts",
+    "test": "node --test --require ts-node/register src/domain/issue.spec.ts src/application/issue-application.service.spec.ts src/infrastructure/postgres-issue.repository.integration.spec.ts",
     "start": "node dist/main.js",
     "start:dev": "ts-node src/main.ts"
   },

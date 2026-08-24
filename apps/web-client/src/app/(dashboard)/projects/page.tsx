@@ -2,11 +2,11 @@ import { WorkspaceProjectDashboard } from "@/features/project/components/Workspa
 
 export default function ProjectsPage() {
   return (
-    <section className="flex flex-col gap-5">
+    <section className="flex flex-col gap-7">
       <div>
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Project command center</p>
-        <h1 className="mt-1 text-3xl font-semibold tracking-tight">Workspaces & projects</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Everything here talks to the system through the API Gateway.</p>
+        <p className="eyebrow">Project command center</p>
+        <h1 className="mt-3 font-heading text-4xl font-normal tracking-[-0.045em] sm:text-5xl">Workspaces & projects</h1>
+        <p className="mt-3 max-w-xl text-sm leading-6 text-muted-foreground">A considered view of the spaces and projects your team is moving through.</p>
       </div>
       <WorkspaceProjectDashboard />
     </section>

@@ -14,7 +14,6 @@ export type RegisterPayload = LoginPayload;
 
 export interface AuthResponse {
   accessToken: string;
-  refreshToken?: string | null;
   user: User;
 }
 

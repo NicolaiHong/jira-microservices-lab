@@ -1,0 +1,32 @@
+- generic [active] [ref=f1e1]:
+  - main [ref=f1e2]:
+    - generic [ref=f1e3]:
+      - generic [ref=f1e4]:
+        - generic [ref=f1e6]:
+          - link "LATTICE" [ref=f1e7] [cursor=pointer]:
+            - /url: /projects
+          - generic [ref=f1e10]: WORKSPACE SYSTEM
+        - generic [ref=f1e11]:
+          - paragraph [ref=f1e12]: Intentional work, clearly arranged
+          - heading "Make the work feel considered." [level=1] [ref=f1e13]
+          - paragraph [ref=f1e14]: A quiet command center for the projects, decisions, and details that move your team forward.
+        - paragraph [ref=f1e15]: Built for focused collaboration
+      - generic [ref=f1e20]:
+        - generic [ref=f1e21]:
+          - paragraph [ref=f1e22]: Welcome back
+          - generic [ref=f1e23]: Sign in
+          - generic [ref=f1e24]: Pick up where the important work left off.
+        - generic [ref=f1e26]:
+          - generic [ref=f1e27]:
+            - generic [ref=f1e28]: Email
+            - textbox "Email" [ref=f1e29]
+          - generic [ref=f1e30]:
+            - generic [ref=f1e31]: Password
+            - textbox "Password" [ref=f1e32]
+          - button "Sign in" [ref=f1e33]
+          - paragraph [ref=f1e34]:
+            - text: New here?
+            - link "Create an account" [ref=f1e35] [cursor=pointer]:
+              - /url: /register
+  - region "Notifications alt+T"
+  - button "Open Next.js Dev Tools" [ref=f1e41] [cursor=pointer]

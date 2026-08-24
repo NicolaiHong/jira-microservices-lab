@@ -1,4 +1,6 @@
 using AppDtos = ProjectService.Application.DTOs;
+using System.Text.Json;
+using ProjectService.Application;
 
 namespace ProjectService.Api.Mappers;
 
@@ -71,7 +73,24 @@ public static class ProjectDtoMapper
         UpdateProjectRequest? request) =>
         request is null
             ? null
-            : new AppDtos.UpdateProjectCommand(request.Name, request.Description);
+            : new AppDtos.UpdateProjectCommand(
+                IsSpecified(request.Name),
+                ToNullableString(request.Name, "name"),
+                IsSpecified(request.Description),
+                ToNullableString(request.Description, "description"));
+
+    private static bool IsSpecified(JsonElement value) =>
+        value.ValueKind != JsonValueKind.Undefined;
+
+    private static string? ToNullableString(JsonElement value, string field) =>
+        value.ValueKind switch
+        {
+            JsonValueKind.Undefined or JsonValueKind.Null => null,
+            JsonValueKind.String => value.GetString(),
+            _ => throw RequestValidation.ValidationError(
+                field,
+                $"{field} must be a string or null")
+        };
 
     public static ProjectAccessContextResponse ToResponse(
         AppDtos.ProjectAccessContextResult result) =>

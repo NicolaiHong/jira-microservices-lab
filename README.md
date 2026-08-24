@@ -7,11 +7,11 @@ A learning-oriented Jira-like vertical slice that demonstrates synchronous servi
 ```text
 Web Client (:3001)
   -> API Gateway (:3000, JWT + rate limit + correlation ID)
-     -> IAM / Spring Boot (:8081, iam_db)
-     -> Project / ASP.NET Core (:8082, project_db)
-     -> Issue / NestJS (:8083, issue_db)
+     -> IAM / Spring Boot (internal :8081, iam_db)
+     -> Project / ASP.NET Core (internal :8082, project_db)
+     -> Issue / NestJS (internal :8083, issue_db)
           -> transactional Outbox -> Redpanda topic issue.events.v1
-                                      -> Notification / Go (:8084, Redis)
+                                      -> Notification / Go (internal :8084, Redis)
 ```
 
 The MVP supports register/login/refresh/logout/me, workspace membership, project lifecycle, issue create/edit/assignment/workflow/comments/history, and notification list/read operations. Private resources return not-found behavior to non-members. Project archive is soft-delete and blocks issue writes.
@@ -22,12 +22,12 @@ The MVP supports register/login/refresh/logout/me, workspace membership, project
 | --- | --- | --- | ---: |
 | Web Client | Next.js 16 / React 19 | Browser session | 3001 |
 | API Gateway | NestJS | Redis rate limits | 3000 |
-| IAM Service | Spring Boot 3 / Java 17 | `iam_db` | 8081 |
-| Project Service | ASP.NET Core / .NET 9 | `project_db` | 8082 |
-| Issue Service | NestJS | `issue_db` + Outbox | 8083 |
-| Notification Service | Go | Redis inbox/dedup | 8084 |
+| IAM Service | Spring Boot 3 / Java 17 | `iam_db` | internal 8081 |
+| Project Service | ASP.NET Core / .NET 9 | `project_db` | internal 8082 |
+| Issue Service | NestJS | `issue_db` + Outbox | internal 8083 |
+| Notification Service | Go | Redis inbox/dedup | internal 8084 |
 
-PostgreSQL, Redis, and Redpanda run in Docker Compose. A service never reads another service's database; Issue checks project access through an internal HTTP contract.
+PostgreSQL, Redis, and Redpanda run only on the internal Compose network. A service never reads another service's database; Issue checks project access through an internal HTTP contract.
 
 ## Start the Backend
 
@@ -115,7 +115,8 @@ CI runs the same ecosystem-specific gates plus Docker Compose contract validatio
 ## Important Learning Boundaries
 
 - Ports `8081`–`8084` are exposed locally for debugging. In production, only Gateway should be public and internal identity headers must be accepted only over a trusted private network or authenticated service-to-service channel.
-- Access tokens and refresh tokens are stored in browser local storage for this learning MVP. A production browser application should prefer secure, HttpOnly cookie/session design after threat modeling.
+- Only Gateway is exposed. Downstream services stay on the Compose network and reject requests without the internal service credential; this prevents a caller from forging `x-authenticated-user-id` by calling a downstream port directly.
+- Refresh tokens are stored in a `HttpOnly`, `SameSite=Strict` gateway cookie. The browser only persists the short-lived access token and user profile.
 - Notifications use polling every five seconds. WebSocket delivery is deliberately optional because Kafka correctness and persisted inbox behavior come first.
 - Redis is the Notification data store for the learning slice; long-term audit/reporting requirements would usually justify durable database persistence.
 

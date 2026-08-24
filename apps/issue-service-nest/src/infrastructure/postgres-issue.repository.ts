@@ -30,6 +30,8 @@ interface IssueRow {
   status: IssueStatus;
   reporter_user_id: string;
   assignee_user_id: string | null;
+  epic_id: string | null;
+  sprint_id: string | null;
   version: number;
   created_at: Date;
   updated_at: Date;
@@ -86,9 +88,9 @@ export class PostgresIssueRepository implements IssueRepository {
       const result = await client.query<IssueRow>(
         `INSERT INTO issues (
            id, project_id, issue_number, issue_key, summary, description,
-           type, priority, status, reporter_user_id, assignee_user_id,
+           type, priority, status, reporter_user_id, assignee_user_id, epic_id, sprint_id,
            version, created_at, updated_at
-         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'TODO',$9,$10,1,$11,$11)
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'TODO',$9,$10,$11,$12,1,$13,$13)
          RETURNING *`,
         [
           id,
@@ -101,6 +103,8 @@ export class PostgresIssueRepository implements IssueRepository {
           data.priority,
           data.reporterUserId,
           data.assigneeUserId,
+          data.epicId,
+          data.sprintId,
           now,
         ],
       );
@@ -146,6 +150,7 @@ export class PostgresIssueRepository implements IssueRepository {
 
   updateIssue(
     issue: Issue,
+    expectedVersion: number,
     data: UpdateIssueData,
     actorUserId: string,
   ): Promise<Issue> {
@@ -153,6 +158,7 @@ export class PostgresIssueRepository implements IssueRepository {
       const updated = await this.updateWithVersion(
         client,
         issue,
+        expectedVersion,
         `summary = $1, description = $2, type = $3, priority = $4`,
         [data.summary, data.description, data.type, data.priority],
       );
@@ -183,6 +189,7 @@ export class PostgresIssueRepository implements IssueRepository {
 
   assignIssue(
     issue: Issue,
+    expectedVersion: number,
     assigneeUserId: string | null,
     actorUserId: string,
   ): Promise<Issue> {
@@ -190,6 +197,7 @@ export class PostgresIssueRepository implements IssueRepository {
       const updated = await this.updateWithVersion(
         client,
         issue,
+        expectedVersion,
         'assignee_user_id = $1',
         [assigneeUserId],
       );
@@ -216,6 +224,7 @@ export class PostgresIssueRepository implements IssueRepository {
 
   transitionIssue(
     issue: Issue,
+    expectedVersion: number,
     status: string,
     actorUserId: string,
   ): Promise<Issue> {
@@ -223,6 +232,7 @@ export class PostgresIssueRepository implements IssueRepository {
       const updated = await this.updateWithVersion(
         client,
         issue,
+        expectedVersion,
         'status = $1',
         [status],
       );
@@ -256,6 +266,7 @@ export class PostgresIssueRepository implements IssueRepository {
       const updatedIssue = await this.updateWithVersion(
         client,
         issue,
+        issue.version,
         'summary = summary',
         [],
       );
@@ -352,6 +363,7 @@ export class PostgresIssueRepository implements IssueRepository {
   private async updateWithVersion(
     client: PoolClient,
     issue: Issue,
+    expectedVersion: number,
     setters: string,
     values: unknown[],
   ): Promise<Issue> {
@@ -361,13 +373,13 @@ export class PostgresIssueRepository implements IssueRepository {
        SET ${setters}, version = version + 1, updated_at = NOW()
        WHERE id = $${parameterOffset + 1} AND version = $${parameterOffset + 2}
        RETURNING *`,
-      [...values, issue.id, issue.version],
+      [...values, issue.id, expectedVersion],
     );
     if (!result.rows[0]) {
       throw new DomainError(
         409,
         'CONCURRENT_ISSUE_MODIFICATION',
-        'Issue changed while the request was being processed; retry the request',
+        'Issue changed since it was last loaded',
       );
     }
     return this.toIssue(result.rows[0]);
@@ -436,6 +448,8 @@ export class PostgresIssueRepository implements IssueRepository {
       status: row.status,
       reporterUserId: row.reporter_user_id,
       assigneeUserId: row.assignee_user_id,
+      epicId: row.epic_id,
+      sprintId: row.sprint_id,
       version: row.version,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
