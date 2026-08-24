@@ -157,6 +157,59 @@ public sealed class ProjectApiPostgresIntegrationTests
         await AssertErrorAsync(hiddenPatch, HttpStatusCode.NotFound, "PROJECT_NOT_FOUND");
     }
 
+    [PostgreSqlProjectFact]
+    public async Task AccessContextAllowsCurrentMembersIncludingArchivedProjectsAndHidesRemovedMembers()
+    {
+        await using var database = await ProjectPostgresIntegrationTests.ProjectDatabase.CreateAsync();
+        var (workspaceId, ownerId) = await database.CreateWorkspaceWithOwnerAsync();
+        var memberId = Guid.NewGuid();
+        await database.AddMemberAsync(workspaceId, memberId, "MEMBER");
+        var project = await database.CreateProjectAsync(workspaceId, ownerId);
+        await using var factory = new ProjectApiFactory(database.SchemaConnectionString);
+        using var client = factory.CreateClient();
+
+        var activeAccess = await SendAsync(
+            client,
+            HttpMethod.Get,
+            $"/internal/projects/{project.Id}/access-context",
+            memberId);
+        var activeAccessBody = await ReadJsonAsync(activeAccess, HttpStatusCode.OK);
+        Assert.Equal(project.Id, activeAccessBody.RootElement.GetProperty("projectId").GetGuid());
+        Assert.Equal(workspaceId, activeAccessBody.RootElement.GetProperty("workspaceId").GetGuid());
+        Assert.Equal("LRN", activeAccessBody.RootElement.GetProperty("projectKey").GetString());
+        Assert.Equal("ACTIVE", activeAccessBody.RootElement.GetProperty("projectStatus").GetString());
+        Assert.Equal("MEMBER", activeAccessBody.RootElement.GetProperty("membershipRole").GetString());
+
+        var archive = await SendAsync(
+            client,
+            HttpMethod.Delete,
+            $"/internal/projects/{project.Id}",
+            ownerId);
+        Assert.Equal(HttpStatusCode.NoContent, archive.StatusCode);
+
+        var archivedAccess = await SendAsync(
+            client,
+            HttpMethod.Get,
+            $"/internal/projects/{project.Id}/access-context",
+            memberId);
+        var archivedAccessBody = await ReadJsonAsync(archivedAccess, HttpStatusCode.OK);
+        Assert.Equal("ARCHIVED", archivedAccessBody.RootElement.GetProperty("projectStatus").GetString());
+
+        var removal = await SendAsync(
+            client,
+            HttpMethod.Delete,
+            $"/internal/workspaces/{workspaceId}/members/{memberId}",
+            ownerId);
+        Assert.Equal(HttpStatusCode.NoContent, removal.StatusCode);
+
+        var removedAccess = await SendAsync(
+            client,
+            HttpMethod.Get,
+            $"/internal/projects/{project.Id}/access-context",
+            memberId);
+        await AssertErrorAsync(removedAccess, HttpStatusCode.NotFound, "PROJECT_NOT_FOUND");
+    }
+
     private static Task<HttpResponseMessage> SendJsonAsync(
         HttpClient client,
         HttpMethod method,

@@ -29,7 +29,7 @@ export function IssueDetailModal({
 }: IssueDetailModalProps) {
   const comments = useComments(issueId);
   const history = useHistory(issueId);
-  const addComment = useAddComment(issueId);
+  const addComment = useAddComment(issueId, issue?.projectId);
   const queryClient = useQueryClient();
 
   async function refreshProjectIfArchived(error: unknown) {
@@ -136,15 +136,29 @@ export function IssueDetailModal({
     }
     const formElement = event.currentTarget;
     const body = String(new FormData(formElement).get("body") ?? "");
+    const trimmedBody = body.trim();
+
+    if (!trimmedBody) {
+      toast.error("Comment cannot be blank");
+      return;
+    }
+
+    if (trimmedBody.length > 5000) {
+      toast.error("Comment must be 5,000 characters or fewer");
+      return;
+    }
+
     try {
-      await addComment.mutateAsync(body);
+      await addComment.mutateAsync(trimmedBody);
       formElement.reset();
     } catch (error) {
       await refreshProjectIfArchived(error);
       toast.error(
-        getIssueErrorCode(error) === "PROJECT_ARCHIVED"
-          ? "Project is read-only."
-          : "Could not add comment",
+        isConcurrentIssueModification(error)
+          ? "Issue changed elsewhere. Latest data has been loaded; your comment is still in the form."
+          : getIssueErrorCode(error) === "PROJECT_ARCHIVED"
+            ? "Project is read-only."
+            : "Could not add comment",
       );
     }
   }
@@ -174,7 +188,17 @@ export function IssueDetailModal({
         <Card>
           <CardHeader><CardTitle>Comments</CardTitle></CardHeader>
           <CardContent className="space-y-3">
-            <form className="flex gap-2" onSubmit={submitComment}><Input disabled={!isProjectWritable} name="body" placeholder="Write a comment" required /><Button disabled={!isProjectWritable || addComment.isPending} type="submit">Add</Button></form>
+            <form className="flex gap-2" onSubmit={submitComment}>
+              <textarea
+                className="min-h-10 flex-1 rounded-lg border bg-background px-3 py-2 text-sm"
+                disabled={!isProjectWritable}
+                maxLength={5000}
+                name="body"
+                placeholder="Write a comment"
+                required
+              />
+              <Button disabled={!isProjectWritable || addComment.isPending} type="submit">Add</Button>
+            </form>
             {comments.data?.map((comment) => <div className="rounded-lg border p-3 text-sm" key={comment.id}><p>{comment.body}</p><p className="mt-1 text-xs text-muted-foreground">{comment.authorUserId} · {new Date(comment.createdAt).toLocaleString()}</p></div>)}
             {comments.data?.length === 0 ? <p className="text-sm text-muted-foreground">No comments yet.</p> : null}
           </CardContent>

@@ -16,6 +16,7 @@ flowchart LR
   Issue --> IssueDB[(issue_db)]
   Issue -->|issue.events.v1| Kafka[Redpanda / Kafka]
   Kafka --> Notification
+  Notification -->|current recipient access| Project
   Notification --> Redis[(Redis)]
 ```
 

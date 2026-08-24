@@ -29,8 +29,17 @@ interface TransitionCall {
   correlationId: string;
 }
 
+interface CommentActivityCall {
+  operation: 'addComment' | 'listComments' | 'listHistory';
+  issueId: string;
+  body: unknown;
+  userId: string | undefined;
+  correlationId: string;
+}
+
 class RecordingIssuesService {
   readonly calls: TransitionCall[] = [];
+  readonly commentActivityCalls: CommentActivityCall[] = [];
   nextError: AppException | undefined;
 
   transitionIssue(
@@ -51,6 +60,56 @@ class RecordingIssuesService {
         version: 2,
       },
     };
+  }
+
+  addComment(
+    issueId: string,
+    body: unknown,
+    userId: string | undefined,
+    correlationId: string,
+  ) {
+    this.commentActivityCalls.push({
+      operation: 'addComment',
+      issueId,
+      body,
+      userId,
+      correlationId,
+    });
+    if (this.nextError) {
+      throw this.nextError;
+    }
+
+    return { comment: { id: 'comment-123', issueId, body: (body as { body?: unknown }).body } };
+  }
+
+  listComments(issueId: string, userId: string | undefined, correlationId: string) {
+    this.commentActivityCalls.push({
+      operation: 'listComments',
+      issueId,
+      body: undefined,
+      userId,
+      correlationId,
+    });
+    if (this.nextError) {
+      throw this.nextError;
+    }
+
+    return { items: [{ id: 'comment-123', issueId }] };
+  }
+
+  listHistory(issueId: string, userId: string | undefined, correlationId: string) {
+    this.commentActivityCalls.push({
+      operation: 'listHistory',
+      issueId,
+      body: undefined,
+      userId,
+      correlationId,
+    });
+    if (this.nextError) {
+      throw this.nextError;
+    }
+
+    return { items: [{ id: 'history-123', issueId, action: 'COMMENT_ADDED' }] };
   }
 }
 
@@ -146,6 +205,115 @@ test('routes transition requests through JWT authentication and the public error
         );
         assert.equal(issues.calls.length, callsBeforeRequest);
       }
+    });
+  } finally {
+    await app.close();
+    restore();
+  }
+});
+
+test('routes comment and activity requests through JWT authentication without Gateway business logic', async (t) => {
+  const restore = configureJwtEnvironment();
+  const issues = new RecordingIssuesService();
+  const app = await createGatewayApp(issues);
+  const accessToken = signedAccessToken(60);
+
+  try {
+    await t.test('forwards POST comments with its opaque body, identity, and correlation ID', async () => {
+      const response = await inject(app, {
+        method: 'POST',
+        url: '/api/issues/issue-123/comments',
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+          'content-type': 'application/json',
+          'x-correlation-id': 'comment-correlation-123',
+        },
+        payload: { body: 'Opaque comment body' },
+      });
+
+      assert.equal(response.statusCode, 201);
+      assert.deepEqual(JSON.parse(response.body), {
+        comment: {
+          id: 'comment-123',
+          issueId: 'issue-123',
+          body: 'Opaque comment body',
+        },
+      });
+      assert.deepEqual(issues.commentActivityCalls, [
+        {
+          operation: 'addComment',
+          issueId: 'issue-123',
+          body: { body: 'Opaque comment body' },
+          userId: 'member-123',
+          correlationId: 'comment-correlation-123',
+        },
+      ]);
+    });
+
+    await t.test('forwards GET comments and history with identity and correlation ID', async () => {
+      const commentsResponse = await inject(app, {
+        method: 'GET',
+        url: '/api/issues/issue-123/comments',
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+          'x-correlation-id': 'comments-read-correlation-123',
+        },
+      });
+      const historyResponse = await inject(app, {
+        method: 'GET',
+        url: '/api/issues/issue-123/history',
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+          'x-correlation-id': 'history-read-correlation-123',
+        },
+      });
+
+      assert.equal(commentsResponse.statusCode, 200);
+      assert.equal(historyResponse.statusCode, 200);
+      assert.deepEqual(issues.commentActivityCalls.slice(1), [
+        {
+          operation: 'listComments',
+          issueId: 'issue-123',
+          body: undefined,
+          userId: 'member-123',
+          correlationId: 'comments-read-correlation-123',
+        },
+        {
+          operation: 'listHistory',
+          issueId: 'issue-123',
+          body: undefined,
+          userId: 'member-123',
+          correlationId: 'history-read-correlation-123',
+        },
+      ]);
+    });
+
+    await t.test('preserves existing downstream comment errors in the public envelope', async () => {
+      issues.nextError = new AppException(
+        409,
+        'CONCURRENT_ISSUE_MODIFICATION',
+        'Issue changed since it was last loaded',
+        { source: 'issue-service' },
+      );
+      const response = await inject(app, {
+        method: 'POST',
+        url: '/api/issues/issue-123/comments',
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+          'content-type': 'application/json',
+          'x-correlation-id': 'comment-conflict-correlation-123',
+        },
+        payload: { body: 'Will conflict' },
+      });
+
+      assert.equal(response.statusCode, 409);
+      assert.deepEqual(JSON.parse(response.body), {
+        code: 'CONCURRENT_ISSUE_MODIFICATION',
+        message: 'Issue changed since it was last loaded',
+        correlationId: 'comment-conflict-correlation-123',
+        details: { source: 'issue-service' },
+      });
+      issues.nextError = undefined;
     });
   } finally {
     await app.close();

@@ -9,6 +9,7 @@ vi.mock("@/lib/http", () => ({
 
 import { http } from "@/lib/http";
 import {
+  addComment,
   assignIssue,
   createIssue,
   isConcurrentIssueModification,
@@ -84,6 +85,23 @@ describe("Issue Core API client", () => {
         priority: "LOW",
       }),
     ).rejects.toThrow("validation failed");
+  });
+
+  it("posts a comment body unchanged after the form has validated and trimmed it", async () => {
+    const comment = {
+      id: "comment-1",
+      issueId: "issue-1",
+      authorUserId: "user-1",
+      body: "A comment",
+      createdAt: "2026-08-24T00:00:00.000Z",
+      updatedAt: "2026-08-24T00:00:00.000Z",
+    };
+    vi.mocked(http.post).mockResolvedValueOnce({ data: { comment } });
+
+    await expect(addComment("issue-1", "A comment")).resolves.toEqual(comment);
+    expect(http.post).toHaveBeenCalledWith("/api/issues/issue-1/comments", {
+      body: "A comment",
+    });
   });
 
   it("recognizes only the documented concurrency conflict", () => {

@@ -65,6 +65,64 @@ test(
       );
     });
 
+    await t.test('stops comment hardening after a read-only legacy audit reports only identifiers and lengths', async () => {
+      await resetSchema(admin);
+      await applyMigrations(admin, [
+        '001_init.sql',
+        '002_scope_issue_key_to_project.sql',
+        '003_planning.sql',
+        '004_issue_core_hardening.sql',
+      ]);
+      const issueId = randomUUID();
+      const commentId = randomUUID();
+      const invalidBody = ' \t\n ';
+      await admin.query(
+        `INSERT INTO issues (
+          id, project_id, issue_number, issue_key, summary, description,
+          type, priority, status, reporter_user_id, version, created_at, updated_at
+        ) VALUES ($1,$2,1,'LEGACY-COMMENT-1','Legacy issue',NULL,'TASK','LOW','TODO',$3,1,NOW(),NOW())`,
+        [issueId, randomUUID(), reporterUserId],
+      );
+      await admin.query(
+        `INSERT INTO issue_comments (
+          id, issue_id, author_user_id, body, created_at, updated_at
+        ) VALUES ($1,$2,$3,$4,NOW(),NOW())`,
+        [commentId, issueId, reporterUserId, invalidBody],
+      );
+
+      await assert.rejects(
+        applyMigrations(admin, ['005_comment_activity_hardening.sql']),
+        (error: unknown) => {
+          assert.ok(error instanceof Error);
+          assert.equal(
+            error.message,
+            `Cannot apply 005_comment_activity_hardening: invalid issue_comments (id:length): ${commentId}:${invalidBody.length}`,
+          );
+          return true;
+        },
+      );
+
+      const legacyRows = await admin.query<{ id: string; body_length: number }>(
+        `SELECT id, char_length(body) AS body_length
+         FROM issue_comments
+         WHERE id = $1`,
+        [commentId],
+      );
+      assert.deepEqual(legacyRows.rows, [
+        { id: commentId, body_length: invalidBody.length },
+      ]);
+      const constraints = await admin.query<{ conname: string }>(
+        `SELECT conname
+         FROM pg_constraint
+         WHERE conrelid = 'issue_comments'::regclass
+           AND conname IN (
+             'chk_issue_comments_body_nonblank',
+             'chk_issue_comments_body_length'
+           )`,
+      );
+      assert.deepEqual(constraints.rows, []);
+    });
+
     await resetSchema(admin);
     await database.onModuleInit();
     const repository = new PostgresIssueRepository(database);
@@ -81,6 +139,90 @@ test(
         ),
         (error: unknown) => isPostgresCheckViolation(error),
       );
+    });
+
+    await t.test('enforces nonblank whitespace and maximum-length comment constraints at the database boundary', async () => {
+      const initial = await repository.createIssue(
+        newIssue(randomUUID(), 'Comment constraint checks'),
+      );
+
+      for (const body of [' ', '     ', '\t', '\n', '\r\n', ' \t\n ', 'x'.repeat(5001)]) {
+        await assert.rejects(
+          database.query(
+            `INSERT INTO issue_comments (
+              id, issue_id, author_user_id, body, created_at, updated_at
+            ) VALUES ($1,$2,$3,$4,NOW(),NOW())`,
+            [randomUUID(), initial.id, reporterUserId, body],
+          ),
+          (error: unknown) => isPostgresCheckViolation(error),
+        );
+      }
+
+      await assert.doesNotReject(
+        database.query(
+          `INSERT INTO issue_comments (
+            id, issue_id, author_user_id, body, created_at, updated_at
+          ) VALUES ($1,$2,$3,$4,NOW(),NOW())`,
+          [randomUUID(), initial.id, reporterUserId, 'x'.repeat(5000)],
+        ),
+      );
+    });
+
+    await t.test('atomically commits one normalized comment, version, history, and outbox event', async () => {
+      const initial = await repository.createIssue(
+        newIssue(randomUUID(), 'Atomic comment'),
+      );
+      const body = 'x'.repeat(200);
+      const result = await application.addComment(
+        initial.id,
+        { body: `  ${body}  ` },
+        requestContext,
+      );
+
+      assert.equal(result.comment.body, body);
+      const effects = await database.query<{
+        version: number;
+        comment_count: string;
+        history_count: string;
+        outbox_count: string;
+      }>(
+        `SELECT
+          i.version,
+          (SELECT count(*) FROM issue_comments WHERE issue_id = i.id) AS comment_count,
+          (SELECT count(*) FROM issue_history WHERE issue_id = i.id AND action = 'COMMENT_ADDED') AS history_count,
+          (SELECT count(*) FROM outbox_events WHERE aggregate_id = i.id AND event_type = 'issue.commented') AS outbox_count
+         FROM issues i
+         WHERE i.id = $1`,
+        [initial.id],
+      );
+      assert.deepEqual(effects.rows[0], {
+        version: initial.version + 1,
+        comment_count: '1',
+        history_count: '1',
+        outbox_count: '1',
+      });
+
+      const history = await database.query<{ to_value: { commentId: string } }>(
+        `SELECT to_value
+         FROM issue_history
+         WHERE issue_id = $1 AND action = 'COMMENT_ADDED'`,
+        [initial.id],
+      );
+      assert.deepEqual(history.rows[0].to_value, { commentId: result.comment.id });
+
+      const outbox = await database.query<{
+        aggregate_version: number;
+        payload: { commentId: string; commentPreview: string };
+      }>(
+        `SELECT aggregate_version, payload
+         FROM outbox_events
+         WHERE aggregate_id = $1 AND event_type = 'issue.commented'`,
+        [initial.id],
+      );
+      assert.equal(outbox.rows[0].aggregate_version, initial.version + 1);
+      assert.equal(outbox.rows[0].payload.commentId, result.comment.id);
+      assert.equal(outbox.rows[0].payload.commentPreview, body.slice(0, 160));
+      assert.equal(outbox.rows[0].payload.commentPreview.length, 160);
     });
 
     await t.test('allocates unique project numbers and keys under concurrent creation', async () => {
@@ -144,6 +286,104 @@ test(
       );
     });
 
+    await t.test('allows exactly one of two comments that begin from the same Issue version', async () => {
+      const initial = await repository.createIssue(
+        newIssue(randomUUID(), 'Concurrent comments'),
+      );
+      const concurrentApplication = issueApplication(
+        repository,
+        activeProjectAccess(createTwoRequestBarrier()),
+      );
+      const outcomes = await Promise.allSettled([
+        concurrentApplication.addComment(initial.id, { body: 'First comment' }, requestContext),
+        concurrentApplication.addComment(initial.id, { body: 'Second comment' }, requestContext),
+      ]);
+
+      assert.equal(outcomes.filter((outcome) => outcome.status === 'fulfilled').length, 1);
+      assertConcurrentIssueFailure(outcomes);
+      await assertCommentState(
+        database,
+        initial.id,
+        initial.version + 1,
+        { commentCount: '1', historyCount: '1', outboxCount: '1' },
+      );
+    });
+
+    await t.test('allows exactly one comment or core mutation that begin from the same Issue version', async () => {
+      const initial = await repository.createIssue(
+        newIssue(randomUUID(), 'Comment versus core mutation'),
+      );
+      const concurrentApplication = issueApplication(
+        repository,
+        activeProjectAccess(createTwoRequestBarrier()),
+      );
+      const outcomes = await Promise.allSettled([
+        concurrentApplication.addComment(initial.id, { body: 'Concurrent comment' }, requestContext),
+        concurrentApplication.updateIssue(
+          initial.id,
+          { summary: 'Concurrent core mutation', expectedVersion: initial.version },
+          requestContext,
+        ),
+      ]);
+
+      assert.equal(outcomes.filter((outcome) => outcome.status === 'fulfilled').length, 1);
+      assertConcurrentIssueFailure(outcomes);
+      const effects = await database.query<{
+        version: number;
+        comment_count: string;
+        comment_history_count: string;
+        update_history_count: string;
+        comment_outbox_count: string;
+        update_outbox_count: string;
+      }>(
+        `SELECT
+          i.version,
+          (SELECT count(*) FROM issue_comments WHERE issue_id = i.id) AS comment_count,
+          (SELECT count(*) FROM issue_history WHERE issue_id = i.id AND action = 'COMMENT_ADDED') AS comment_history_count,
+          (SELECT count(*) FROM issue_history WHERE issue_id = i.id AND action = 'UPDATED') AS update_history_count,
+          (SELECT count(*) FROM outbox_events WHERE aggregate_id = i.id AND event_type = 'issue.commented') AS comment_outbox_count,
+          (SELECT count(*) FROM outbox_events WHERE aggregate_id = i.id AND event_type = 'issue.updated') AS update_outbox_count
+         FROM issues i
+         WHERE i.id = $1`,
+        [initial.id],
+      );
+      const persisted = effects.rows[0];
+      assert.equal(persisted.version, initial.version + 1);
+      if (persisted.comment_count === '1') {
+        assert.deepEqual(
+          {
+            commentHistoryCount: persisted.comment_history_count,
+            updateHistoryCount: persisted.update_history_count,
+            commentOutboxCount: persisted.comment_outbox_count,
+            updateOutboxCount: persisted.update_outbox_count,
+          },
+          {
+            commentHistoryCount: '1',
+            updateHistoryCount: '0',
+            commentOutboxCount: '1',
+            updateOutboxCount: '0',
+          },
+        );
+      } else {
+        assert.deepEqual(
+          {
+            commentCount: persisted.comment_count,
+            commentHistoryCount: persisted.comment_history_count,
+            updateHistoryCount: persisted.update_history_count,
+            commentOutboxCount: persisted.comment_outbox_count,
+            updateOutboxCount: persisted.update_outbox_count,
+          },
+          {
+            commentCount: '0',
+            commentHistoryCount: '0',
+            updateHistoryCount: '1',
+            commentOutboxCount: '0',
+            updateOutboxCount: '1',
+          },
+        );
+      }
+    });
+
     await t.test('rejects an invalid transition with zero transition side effects', async () => {
       const initial = await repository.createIssue(
         newIssue(randomUUID(), 'Invalid transition'),
@@ -174,6 +414,102 @@ test(
       await assertRollbackForStatusUpdateFailure(database, admin, repository, application);
       await assertRollbackForHistoryInsertFailure(database, admin, repository, application);
       await assertRollbackForOutboxInsertFailure(database, admin, repository, application);
+    });
+
+    await t.test('rolls back all comment effects when any local persistence step fails', async () => {
+      await assertRollbackForCommentFailure(
+        database,
+        admin,
+        repository,
+        application,
+        {
+          name: 'issue_version_update',
+          relation: 'issues',
+          message: 'forced comment Issue version update failure',
+          trigger: 'BEFORE UPDATE OF summary ON issues FOR EACH ROW',
+        },
+      );
+      await assertRollbackForCommentFailure(
+        database,
+        admin,
+        repository,
+        application,
+        {
+          name: 'comment_insert',
+          relation: 'issue_comments',
+          message: 'forced comment insert failure',
+          trigger: 'BEFORE INSERT ON issue_comments FOR EACH ROW',
+        },
+      );
+      await assertRollbackForCommentFailure(
+        database,
+        admin,
+        repository,
+        application,
+        {
+          name: 'history_insert',
+          relation: 'issue_history',
+          message: 'forced comment history failure',
+          trigger: "BEFORE INSERT ON issue_history FOR EACH ROW WHEN (NEW.action = 'COMMENT_ADDED')",
+        },
+      );
+      await assertRollbackForCommentFailure(
+        database,
+        admin,
+        repository,
+        application,
+        {
+          name: 'outbox_insert',
+          relation: 'outbox_events',
+          message: 'forced comment outbox failure',
+          trigger: "BEFORE INSERT ON outbox_events FOR EACH ROW WHEN (NEW.event_type = 'issue.commented')",
+        },
+      );
+    });
+
+    await t.test('lists comments and history oldest-first with deterministic ID tie breaking', async () => {
+      const initial = await repository.createIssue(
+        newIssue(randomUUID(), 'Deterministic comment and history ordering'),
+      );
+      const [firstCommentId, secondCommentId] = [randomUUID(), randomUUID()].sort();
+      const [firstHistoryId, secondHistoryId] = [randomUUID(), randomUUID()].sort();
+      const tiedAt = new Date('2099-01-01T00:00:00.000Z');
+
+      await database.query(
+        `INSERT INTO issue_comments (
+          id, issue_id, author_user_id, body, created_at, updated_at
+        ) VALUES
+          ($1,$2,$3,'second', $4, $4),
+          ($5,$2,$3,'first', $4, $4)`,
+        [secondCommentId, initial.id, reporterUserId, tiedAt, firstCommentId],
+      );
+      await database.query(
+        `INSERT INTO issue_history (
+          id, issue_id, actor_user_id, action, from_value, to_value, created_at
+        ) VALUES
+          ($1,$2,$3,'COMMENT_ADDED',NULL,$4,$5),
+          ($6,$2,$3,'COMMENT_ADDED',NULL,$7,$5)`,
+        [
+          secondHistoryId,
+          initial.id,
+          reporterUserId,
+          { commentId: secondCommentId },
+          tiedAt,
+          firstHistoryId,
+          { commentId: firstCommentId },
+        ],
+      );
+
+      const comments = await repository.listComments(initial.id);
+      assert.deepEqual(comments.map((comment) => comment.id), [
+        firstCommentId,
+        secondCommentId,
+      ]);
+      const history = await repository.listHistory(initial.id);
+      assert.deepEqual(history.slice(-2).map((entry) => entry.id), [
+        firstHistoryId,
+        secondHistoryId,
+      ]);
     });
   },
 );
@@ -245,6 +581,105 @@ function unusedPlanningRepository(): PlanningRepository {
       throw new Error('not used by lifecycle integration tests');
     },
   };
+}
+
+function assertConcurrentIssueFailure(
+  outcomes: readonly PromiseSettledResult<unknown>[],
+): void {
+  const failure = outcomes.find(
+    (outcome): outcome is PromiseRejectedResult => outcome.status === 'rejected',
+  );
+  assert.ok(failure);
+  assert.ok(failure.reason instanceof DomainError);
+  assert.equal(failure.reason.status, 409);
+  assert.equal(failure.reason.code, 'CONCURRENT_ISSUE_MODIFICATION');
+}
+
+interface CommentFailure {
+  name: string;
+  relation: 'issues' | 'issue_comments' | 'issue_history' | 'outbox_events';
+  message: string;
+  trigger: string;
+}
+
+async function assertRollbackForCommentFailure(
+  database: Database,
+  admin: Pool,
+  repository: PostgresIssueRepository,
+  application: IssueApplicationService,
+  failure: CommentFailure,
+): Promise<void> {
+  const initial = await repository.createIssue(
+    newIssue(randomUUID(), `Comment rollback ${failure.name}`),
+  );
+  const functionName = `fail_comment_${failure.name}`;
+  const triggerName = `${functionName}_trigger`;
+  await admin.query(`
+    CREATE FUNCTION ${functionName}() RETURNS trigger AS $$
+    BEGIN
+      RAISE EXCEPTION '${failure.message}';
+    END;
+    $$ LANGUAGE plpgsql;
+    CREATE TRIGGER ${triggerName}
+      ${failure.trigger} EXECUTE FUNCTION ${functionName}();
+  `);
+
+  try {
+    await assert.rejects(
+      application.addComment(
+        initial.id,
+        { body: `Comment rollback ${failure.name}` },
+        requestContext,
+      ),
+      new RegExp(failure.message),
+    );
+  } finally {
+    await admin.query(
+      `DROP TRIGGER IF EXISTS ${triggerName} ON ${failure.relation};
+       DROP FUNCTION IF EXISTS ${functionName}();`,
+    );
+  }
+
+  await assertCommentState(
+    database,
+    initial.id,
+    initial.version,
+    { commentCount: '0', historyCount: '0', outboxCount: '0' },
+  );
+}
+
+async function assertCommentState(
+  database: Database,
+  issueId: string,
+  expectedVersion: number,
+  expectedEffects: {
+    commentCount: string;
+    historyCount: string;
+    outboxCount: string;
+  },
+): Promise<void> {
+  const persisted = await database.query<{ version: number }>(
+    'SELECT version FROM issues WHERE id = $1',
+    [issueId],
+  );
+  assert.equal(persisted.rows[0].version, expectedVersion);
+
+  const effects = await database.query<{
+    comment_count: string;
+    history_count: string;
+    outbox_count: string;
+  }>(
+    `SELECT
+      (SELECT count(*) FROM issue_comments WHERE issue_id = $1) AS comment_count,
+      (SELECT count(*) FROM issue_history WHERE issue_id = $1 AND action = 'COMMENT_ADDED') AS history_count,
+      (SELECT count(*) FROM outbox_events WHERE aggregate_id = $1 AND event_type = 'issue.commented') AS outbox_count`,
+    [issueId],
+  );
+  assert.deepEqual(effects.rows[0], {
+    comment_count: expectedEffects.commentCount,
+    history_count: expectedEffects.historyCount,
+    outbox_count: expectedEffects.outboxCount,
+  });
 }
 
 async function assertRollbackForStatusUpdateFailure(

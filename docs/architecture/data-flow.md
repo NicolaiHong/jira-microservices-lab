@@ -21,7 +21,11 @@ sequenceDiagram
   I-->>GW: response
   DB->>K: outbox publisher
   K->>N: issue.events.v1
+  N->>P: current access check for each candidate recipient
+  P-->>N: eligible / documented not found
   N->>N: deterministic recipient projection in Redis
 ```
 
 An unavailable Project service blocks Issue requests with a stable 503. An unavailable Kafka broker does not roll back the committed Issue transaction; pending outbox publication retries.
+
+Notification processing also makes a synchronous Project Service read while handling an asynchronous Kafka event. A Project outage therefore delays notification projection and can increase Kafka lag, but it does not reverse the already-committed Issue change.

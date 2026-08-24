@@ -87,6 +87,31 @@ jobs:
           dotnet-version: 9.0.x
       - run: dotnet build apps/project-service-dotnet/ProjectService.csproj --configuration Release
 
+  project-access-postgres:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: project_test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d project_test_db"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      PROJECT_SERVICE_TEST_DATABASE_URL: Host=localhost;Port=5432;Database=project_test_db;Username=postgres;Password=postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+      - run: dotnet test tests/project-service-dotnet-tests/ProjectService.Tests.csproj --configuration Release
+
   go:
     runs-on: ubuntu-latest
     defaults:
@@ -98,6 +123,7 @@ jobs:
         with:
           go-version: "1.22"
           cache-dependency-path: apps/notification-service-go/go.sum
+      - run: go test ./...
       - run: go build ./...
 
   compose-contract:

@@ -21,9 +21,10 @@ An Issue mutation commits an outbox event; Kafka and Notification service eventu
 
 1. Issue transaction writes its outbox event with recipient IDs excluding the actor.
 2. Outbox publisher sends the version-1 envelope to Kafka and marks it published.
-3. Notification consumer validates envelope, derives content, and stores deterministic recipient records in Redis.
-4. Recipient's client polls Gateway; Gateway forwards user context to Notification Service.
-5. Recipient marks one or all notifications read.
+3. Notification consumer validates the envelope, normalizes and deduplicates candidate recipients, excludes the actor under the existing event semantics, and asks Project Service for each remaining recipient's current access context.
+4. A documented `404 PROJECT_NOT_FOUND` means that recipient is skipped. A timeout, transport error, `5xx`, malformed success response, unexpected `4xx`, or internal authentication/configuration failure makes the Kafka record retryable.
+5. Only after every required access check succeeds does the consumer write all eligible deterministic recipient records to Redis in one batched operation. Zero eligible recipients is a successful no-op.
+6. Recipient reads and mark-read requests continue through the Gateway.
 
 ## Alternative Flows
 
@@ -33,7 +34,7 @@ The same event/recipient produces the same deterministic ID, so Redis write is i
 
 ## Failure / Error Flows
 
-Publisher records failed attempts and retries up to its query limit; malformed/unsupported events go to a dead-letter topic when delivery succeeds. Redis errors prevent Kafka offset commit and are retried.
+Publisher records failed attempts and retries up to its query limit; malformed/unsupported events go to a dead-letter topic when delivery succeeds. Redis and Project access errors prevent Kafka offset commit and are retried. The consumer never advances or commits a partition past a retryable failed record. After a successful DLQ write it can commit that record; a DLQ or commit failure leaves the offset uncommitted.
 
 ## Business Rules
 
@@ -65,7 +66,7 @@ Consumer requires schema version 1, event ID, and aggregate ID. Read endpoint va
 
 ## Edge Cases
 
-Notifications expire after 90 days. Exactly-once delivery is not guaranteed.
+Notifications expire after 90 days. Exactly-once delivery is not guaranteed. Historical reporter and assignee identities in Issue records/events remain unchanged; removed members simply do not receive new notification projections. An archived Project member remains eligible for read notifications. The access-check-to-Redis-write interval is an accepted TOCTOU boundary.
 
 ## Acceptance Criteria
 

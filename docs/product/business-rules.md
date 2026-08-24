@@ -56,4 +56,4 @@ At most one sprint per project can be `ACTIVE`; a completed sprint cannot be com
 
 ### BR-NOTIF-001 — Recipient-owned, event-derived notifications
 
-Notifications are derived projections, not issue truth. A notification belongs to one recipient; deterministic event/recipient identifiers make consumer redelivery idempotent. Mark-read is idempotent.
+Notifications are derived projections, not issue truth. A notification belongs to one recipient; deterministic event/recipient identifiers make consumer redelivery idempotent. Mark-read is idempotent. Historical Issue identities and event candidates remain immutable, but Notification Service verifies each non-actor candidate's current Project read access immediately before creating a new projection. The documented absent/non-member `404` skips that candidate; all other Project access failures retry the event without Redis writes. Archived Project membership remains current read access.

@@ -57,6 +57,11 @@ interface FakeRepository extends IssueRepository {
     transition: ValidatedIssueTransition;
   }>;
   creates: NewIssueData[];
+  commentCalls: Array<{
+    issue: Issue;
+    authorUserId: string;
+    body: string;
+  }>;
 }
 
 function fakeRepository(current = issue()): FakeRepository {
@@ -69,6 +74,11 @@ function fakeRepository(current = issue()): FakeRepository {
       transition: ValidatedIssueTransition;
     }>,
     creates: [] as NewIssueData[],
+    commentCalls: [] as Array<{
+      issue: Issue;
+      authorUserId: string;
+      body: string;
+    }>,
     async createIssue(data: NewIssueData) {
       repository.creates.push(data);
       return {
@@ -124,8 +134,29 @@ function fakeRepository(current = issue()): FakeRepository {
       };
       return repository.current;
     },
-    async addComment(): Promise<IssueComment> {
-      throw new Error('not used by this test');
+    async addComment(
+      currentIssue: Issue,
+      authorUserId: string,
+      body: string,
+    ): Promise<IssueComment> {
+      repository.commentCalls.push({
+        issue: currentIssue,
+        authorUserId,
+        body,
+      });
+      repository.current = {
+        ...currentIssue,
+        version: currentIssue.version + 1,
+      };
+      const now = new Date('2026-08-24T00:00:00.000Z');
+      return {
+        id: '77777777-7777-4777-8777-777777777777',
+        issueId: currentIssue.id,
+        authorUserId,
+        body,
+        createdAt: now,
+        updatedAt: now,
+      };
     },
     async listComments(): Promise<IssueComment[]> {
       return [];
@@ -555,6 +586,75 @@ test('does not remove an assignee from existing issue data after that user loses
   const { application } = service(repository);
   const read = await application.getIssue(ids.issue, context);
   assert.equal(read.issue.assigneeUserId, ids.outsider);
+});
+
+test('normalizes valid comments, derives their immutable author, and rejects blank or oversized bodies', async () => {
+  for (const userId of [ids.member, ids.admin, ids.reporter]) {
+    const { application, repository } = service();
+    const result = await application.addComment(
+      ids.issue,
+      { body: '  A useful comment  ' },
+      { ...context, userId },
+    );
+
+    assert.equal(result.comment.body, 'A useful comment');
+    assert.deepEqual(repository.commentCalls, [
+      {
+        issue: issue(),
+        authorUserId: userId,
+        body: 'A useful comment',
+      },
+    ]);
+  }
+
+  for (const body of [' ', '     ', '\t', '\n', '\r\n', ' \t\n ', 'x'.repeat(5001)]) {
+    const { application, repository } = service();
+    await assert.rejects(
+      application.addComment(ids.issue, { body }, context),
+      (error: unknown) =>
+        error instanceof DomainError &&
+        error.status === 400 &&
+        error.code === 'VALIDATION_ERROR',
+    );
+    assert.equal(repository.commentCalls.length, 0);
+  }
+
+  const maximum = service();
+  await assert.doesNotReject(
+    maximum.application.addComment(ids.issue, { body: 'x'.repeat(5000) }, context),
+  );
+  assert.equal(maximum.repository.commentCalls[0].body.length, 5000);
+
+  const outsider = service();
+  await assert.rejects(
+    outsider.application.addComment(
+      ids.issue,
+      { body: 'Hidden from non-members' },
+      { ...context, userId: ids.outsider },
+    ),
+    (error: unknown) => error instanceof DomainError && error.code === 'ISSUE_NOT_FOUND',
+  );
+  assert.equal(outsider.repository.commentCalls.length, 0);
+});
+
+test('allows comments on DONE issues while active and keeps archived comments and history readable', async () => {
+  const done = service(fakeRepository({ ...issue(), status: 'DONE' }));
+  await assert.doesNotReject(
+    done.application.addComment(ids.issue, { body: 'Still commentable' }, context),
+  );
+  assert.equal(done.repository.commentCalls.length, 1);
+
+  const archived = service(fakeRepository(), 'ARCHIVED');
+  await assert.doesNotReject(archived.application.listComments(ids.issue, context));
+  await assert.doesNotReject(archived.application.listHistory(ids.issue, context));
+  await assert.rejects(
+    archived.application.addComment(ids.issue, { body: 'Blocked write' }, context),
+    (error: unknown) =>
+      error instanceof DomainError &&
+      error.status === 409 &&
+      error.code === 'PROJECT_ARCHIVED',
+  );
+  assert.equal(archived.repository.commentCalls.length, 0);
 });
 
 test('keeps archived issues readable while blocking real Issue Core writes', async () => {

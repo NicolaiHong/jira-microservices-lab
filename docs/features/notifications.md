@@ -14,7 +14,7 @@ NOTIF-001.
 
 ## Responsibilities
 
-Issue writes recipient IDs in events; Notification consumes and stores projections; Gateway enforces caller context at API edge.
+Issue writes historical recipient IDs in events; Notification revalidates each candidate's current Project access immediately before storing projections; Gateway enforces caller context at API edge.
 
 ## UI
 
@@ -38,7 +38,7 @@ Recipient owns their notification rows.
 
 ## Error Handling
 
-Bad events are dead-lettered when possible; Redis failures are retried by not committing offset.
+Bad events are dead-lettered when possible. A documented Project `404` skips only that recipient; a Project timeout, transport/config/auth failure, malformed `200`, unexpected `4xx`, or `5xx` retries the record without Redis writes. Redis failures likewise retry without committing offset.
 
 ## Important Components / Modules
 
@@ -46,11 +46,11 @@ Issue outbox publisher; Go consumer/store/handler; client notification hooks.
 
 ## Tests
 
-Redis store tests cover persistence behaviour.
+Consumer tests cover recipient access, all-or-nothing Redis projection, deterministic IDs, and offset/DLQ safety.
 
 ## Known Limitations
 
-Polling only, 90-day retention, no exactly-once guarantee.
+Polling only, 90-day retention, no exactly-once guarantee. Project Service availability now affects asynchronous notification projection and can increase Kafka lag. The accepted access-check-to-Redis-write TOCTOU cannot prevent an access change in that small interval.
 
 ## Open Questions
 
