@@ -9,17 +9,40 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import {
   assignIssue,
+  getIssueErrorCode,
   isConcurrentIssueModification,
   updateIssue,
 } from "../../api";
 import { useAddComment, useComments, useHistory } from "../../hooks/useIssue";
 import type { Issue } from "../../types";
 
-export function IssueDetailModal({ issue, issueId }: { issue?: Issue; issueId: string }) {
+interface IssueDetailModalProps {
+  issue?: Issue;
+  issueId: string;
+  isProjectWritable: boolean;
+}
+
+export function IssueDetailModal({
+  issue,
+  issueId,
+  isProjectWritable,
+}: IssueDetailModalProps) {
   const comments = useComments(issueId);
   const history = useHistory(issueId);
   const addComment = useAddComment(issueId);
   const queryClient = useQueryClient();
+
+  async function refreshProjectIfArchived(error: unknown) {
+    if (
+      issue?.projectId &&
+      getIssueErrorCode(error) === "PROJECT_ARCHIVED"
+    ) {
+      await queryClient.invalidateQueries({
+        queryKey: ["project", issue.projectId],
+      });
+    }
+  }
+
   const update = useMutation({
     mutationFn: (payload: Parameters<typeof updateIssue>[1]) =>
       updateIssue(issueId, payload, issue?.version ?? 0),
@@ -37,6 +60,7 @@ export function IssueDetailModal({ issue, issueId }: { issue?: Issue; issueId: s
           await queryClient.invalidateQueries({ queryKey: ["issues", issue.projectId] });
         }
       }
+      await refreshProjectIfArchived(error);
     },
   });
   const assign = useMutation({
@@ -56,6 +80,7 @@ export function IssueDetailModal({ issue, issueId }: { issue?: Issue; issueId: s
           await queryClient.invalidateQueries({ queryKey: ["issues", issue.projectId] });
         }
       }
+      await refreshProjectIfArchived(error);
     },
   });
 
@@ -65,6 +90,9 @@ export function IssueDetailModal({ issue, issueId }: { issue?: Issue; issueId: s
 
   async function submitEdit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!isProjectWritable) {
+      return;
+    }
     const form = new FormData(event.currentTarget);
     try {
       await update.mutateAsync({
@@ -85,6 +113,9 @@ export function IssueDetailModal({ issue, issueId }: { issue?: Issue; issueId: s
 
   async function submitAssignment(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!isProjectWritable) {
+      return;
+    }
     const value = String(new FormData(event.currentTarget).get("assigneeUserId") ?? "");
     try {
       await assign.mutateAsync(value || null);
@@ -100,12 +131,22 @@ export function IssueDetailModal({ issue, issueId }: { issue?: Issue; issueId: s
 
   async function submitComment(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!isProjectWritable) {
+      return;
+    }
     const formElement = event.currentTarget;
     const body = String(new FormData(formElement).get("body") ?? "");
     try {
       await addComment.mutateAsync(body);
       formElement.reset();
-    } catch { toast.error("Could not add comment"); }
+    } catch (error) {
+      await refreshProjectIfArchived(error);
+      toast.error(
+        getIssueErrorCode(error) === "PROJECT_ARCHIVED"
+          ? "Project is read-only."
+          : "Could not add comment",
+      );
+    }
   }
 
   return (
@@ -120,20 +161,20 @@ export function IssueDetailModal({ issue, issueId }: { issue?: Issue; issueId: s
           </CardHeader>
           <CardContent>
             <form className="space-y-3" onSubmit={submitEdit}>
-              <Input defaultValue={issue.summary} maxLength={200} name="summary" required />
-              <textarea className="min-h-28 w-full rounded-lg border bg-background p-3 text-sm" defaultValue={issue.description ?? ""} name="description" placeholder="Description" />
+              <Input disabled={!isProjectWritable} defaultValue={issue.summary} maxLength={200} name="summary" required />
+              <textarea className="min-h-28 w-full rounded-lg border bg-background p-3 text-sm" defaultValue={issue.description ?? ""} disabled={!isProjectWritable} name="description" placeholder="Description" />
               <div className="grid gap-3 sm:grid-cols-2">
-                <select className="h-8 rounded-lg border bg-background px-2 text-sm" defaultValue={issue.type} name="type"><option>TASK</option><option>BUG</option><option>STORY</option></select>
-                <select className="h-8 rounded-lg border bg-background px-2 text-sm" defaultValue={issue.priority} name="priority"><option>LOW</option><option>MEDIUM</option><option>HIGH</option><option>CRITICAL</option></select>
+                <select className="h-8 rounded-lg border bg-background px-2 text-sm" defaultValue={issue.type} disabled={!isProjectWritable} name="type"><option>TASK</option><option>BUG</option><option>STORY</option></select>
+                <select className="h-8 rounded-lg border bg-background px-2 text-sm" defaultValue={issue.priority} disabled={!isProjectWritable} name="priority"><option>LOW</option><option>MEDIUM</option><option>HIGH</option><option>CRITICAL</option></select>
               </div>
-              <Button disabled={update.isPending} type="submit">Save issue</Button>
+              <Button disabled={!isProjectWritable || update.isPending} type="submit">Save issue</Button>
             </form>
           </CardContent>
         </Card>
         <Card>
           <CardHeader><CardTitle>Comments</CardTitle></CardHeader>
           <CardContent className="space-y-3">
-            <form className="flex gap-2" onSubmit={submitComment}><Input name="body" placeholder="Write a comment" required /><Button disabled={addComment.isPending} type="submit">Add</Button></form>
+            <form className="flex gap-2" onSubmit={submitComment}><Input disabled={!isProjectWritable} name="body" placeholder="Write a comment" required /><Button disabled={!isProjectWritable || addComment.isPending} type="submit">Add</Button></form>
             {comments.data?.map((comment) => <div className="rounded-lg border p-3 text-sm" key={comment.id}><p>{comment.body}</p><p className="mt-1 text-xs text-muted-foreground">{comment.authorUserId} · {new Date(comment.createdAt).toLocaleString()}</p></div>)}
             {comments.data?.length === 0 ? <p className="text-sm text-muted-foreground">No comments yet.</p> : null}
           </CardContent>
@@ -142,7 +183,7 @@ export function IssueDetailModal({ issue, issueId }: { issue?: Issue; issueId: s
       <div className="space-y-5">
         <Card>
           <CardHeader><CardTitle>Assignment</CardTitle></CardHeader>
-          <CardContent><form className="space-y-3" onSubmit={submitAssignment}><Input defaultValue={issue.assigneeUserId ?? ""} name="assigneeUserId" placeholder="Member UUID; empty to unassign" /><Button className="w-full" disabled={assign.isPending} type="submit">Update assignee</Button></form></CardContent>
+          <CardContent><form className="space-y-3" onSubmit={submitAssignment}><Input defaultValue={issue.assigneeUserId ?? ""} disabled={!isProjectWritable} name="assigneeUserId" placeholder="Member UUID; empty to unassign" /><Button className="w-full" disabled={!isProjectWritable || assign.isPending} type="submit">Update assignee</Button></form></CardContent>
         </Card>
         <Card>
           <CardHeader><CardTitle>History</CardTitle></CardHeader>

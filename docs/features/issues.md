@@ -22,7 +22,7 @@ Backlog, board, and issue detail routes.
 
 ## State
 
-Issue, sequence, history, outbox in `issue_db`; React Query issues cache.
+Issue, sequence, history, outbox in `issue_db`; React Query Issue and Project caches. The Board uses buttons rather than drag-and-drop.
 
 ## API Usage
 
@@ -30,15 +30,15 @@ See [issues API](../api/issues.md).
 
 ## Validation
 
-Types/priorities/statuses, UUID links, text limits, and fixed state transition map.
+Types/priorities/statuses, UUID links, text limits, immutable core PATCH fields, a no-op core PATCH exception, and the fixed state transition map shared by `TASK`, `BUG`, and `STORY`.
 
 ## Authorization
 
-Visible workspace membership; active project required for writes. Archived-project issues remain readable, while all Issue Core writes return `PROJECT_ARCHIVED`.
+Visible workspace membership; `MEMBER`, `ADMIN`, and `OWNER` have equal transition access. Active Project is required for real writes. Archived-project issues remain readable, while creation, real detail changes, assignment, and transitions return `PROJECT_ARCHIVED`; the client retains reads and gates applicable write controls.
 
 ## Error Handling
 
-Stable errors include invalid transition, archived project, `CONCURRENT_ISSUE_MODIFICATION`, and Project unavailable. Details, assignment, and transitions require `expectedVersion`; the client refreshes relevant issue queries after a concurrency conflict and does not retry the write.
+Stable errors include invalid transition, archived Project, `CONCURRENT_ISSUE_MODIFICATION`, and Project unavailable. Real detail changes, assignment, and transitions require `expectedVersion`; a no-mutable-field core PATCH is visibility-only. The client refreshes relevant Issue queries after every transition result, does not optimistically fake a status, and does not retry the write.
 
 ## Important Components / Modules
 
@@ -46,11 +46,11 @@ Issue application service/domain/repository; Gateway issue adapter; client issue
 
 ## Tests
 
-No verified Issue-specific automated tests in the checked-in test set.
+Checked-in Issue Service domain/application/PostgreSQL lifecycle tests, Gateway transition tests, and web Issue-component/hook tests cover the fixed workflow, concurrency, atomicity, forwarding, and archived read-only gates. The PostgreSQL suite uses a dedicated disposable test database in CI.
 
 ## Known Limitations
 
-No delete, labels, attachments, estimates, pagination, server filters, or configurable workflow.
+No delete, labels, attachments, estimates, pagination, server filters, configurable workflow, transition idempotency-key guarantee, or Board drag-and-drop.
 
 ## Open Questions
 

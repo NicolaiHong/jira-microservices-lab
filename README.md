@@ -14,18 +14,18 @@ Web Client (:3001)
                                       -> Notification / Go (internal :8084, Redis)
 ```
 
-The MVP supports register/login/refresh/logout/me, workspace membership, project lifecycle, issue create/edit/assignment/workflow/comments/history, and notification list/read operations. Private resources return not-found behavior to non-members. Project archive is soft-delete and blocks issue writes.
+The MVP supports register/login/refresh/logout/me, workspace membership, project lifecycle, issue create/edit/assignment/workflow/comments/history, and notification list/read operations. The fixed Issue workflow is `TODO → IN_PROGRESS`, `IN_PROGRESS → TODO|DONE`, and `DONE → IN_PROGRESS`; `DONE` is reopenable and the Board uses buttons rather than drag-and-drop. Private resources return not-found behavior to non-members. Project archive is soft-delete: Issue reads remain available while applicable client write controls are read-only and Issue writes are rejected.
 
 ## Services
 
-| Service | Stack | Owned data | Port |
-| --- | --- | --- | ---: |
-| Web Client | Next.js 16 / React 19 | Browser session | 3001 |
-| API Gateway | NestJS | Redis rate limits | 3000 |
-| IAM Service | Spring Boot 3 / Java 17 | `iam_db` | internal 8081 |
-| Project Service | ASP.NET Core / .NET 9 | `project_db` | internal 8082 |
-| Issue Service | NestJS | `issue_db` + Outbox | internal 8083 |
-| Notification Service | Go | Redis inbox/dedup | internal 8084 |
+| Service              | Stack                   | Owned data          |          Port |
+| -------------------- | ----------------------- | ------------------- | ------------: |
+| Web Client           | Next.js 16 / React 19   | Browser session     |          3001 |
+| API Gateway          | NestJS                  | Redis rate limits   |          3000 |
+| IAM Service          | Spring Boot 3 / Java 17 | `iam_db`            | internal 8081 |
+| Project Service      | ASP.NET Core / .NET 9   | `project_db`        | internal 8082 |
+| Issue Service        | NestJS                  | `issue_db` + Outbox | internal 8083 |
+| Notification Service | Go                      | Redis inbox/dedup   | internal 8084 |
 
 PostgreSQL, Redis, and Redpanda run only on the internal Compose network. A service never reads another service's database; Issue checks project access through an internal HTTP contract.
 
@@ -102,15 +102,17 @@ For synchronous HTTP, copy the `correlation=...` value printed by the smoke scri
 ## Verification Commands
 
 ```bash
-cd apps/api-gateway-nest && npm ci && npm audit --omit=dev && npm run build
-cd apps/issue-service-nest && npm ci && npm test
-cd apps/web-client && npm ci && npm run lint && npm test && npm run build
+cd apps/api-gateway-nest && npm ci && npm audit --omit=dev && npm test && npm run build
+cd apps/issue-service-nest && npm ci && npm test && npm run build
+# Lifecycle PostgreSQL integration coverage is mandatory in CI and requires its dedicated disposable database locally.
+ISSUE_SERVICE_TEST_DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:55432/issue_test_db npm run test:integration
+cd apps/web-client && npm ci && npm run lint && npm test && npm run typecheck && npm run build
 cd apps/iam-service-java && mvn -B test
 dotnet test tests/project-service-dotnet-tests/ProjectService.Tests.csproj
 cd apps/notification-service-go && go test ./... && go build ./...
 ```
 
-CI runs the same ecosystem-specific gates plus Docker Compose contract validation. The event envelope lives at `contracts/events/issue-event-v1.schema.json`.
+CI runs the ecosystem-specific tests/build gates plus Docker Compose contract validation. The Issue lifecycle PostgreSQL integration suite runs against a dedicated disposable test database, not `issue_db`. The event envelope lives at `contracts/events/issue-event-v1.schema.json`.
 
 ## Important Learning Boundaries
 

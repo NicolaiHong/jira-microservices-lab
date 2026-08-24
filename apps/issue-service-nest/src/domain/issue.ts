@@ -9,6 +9,19 @@ export type IssueType = (typeof ISSUE_TYPES)[number];
 export type IssuePriority = (typeof ISSUE_PRIORITIES)[number];
 export type IssueStatus = (typeof ISSUE_STATUSES)[number];
 
+const validatedIssueTransition = Symbol('validatedIssueTransition');
+
+/**
+ * A transition that has passed the domain workflow check. Infrastructure can
+ * persist this value, but cannot create one without going through
+ * assertTransition.
+ */
+export type ValidatedIssueTransition = {
+  readonly from: IssueStatus;
+  readonly to: IssueStatus;
+  readonly [validatedIssueTransition]: true;
+};
+
 export interface Issue {
   id: string;
   projectId: string;
@@ -127,7 +140,10 @@ export function uuid(value: unknown, field: string): string {
   return value.toLowerCase();
 }
 
-export function assertTransition(from: IssueStatus, to: IssueStatus): void {
+export function assertTransition(
+  from: IssueStatus,
+  to: IssueStatus,
+): ValidatedIssueTransition {
   if (from === to || !transitions[from].includes(to)) {
     throw new DomainError(
       409,
@@ -136,6 +152,8 @@ export function assertTransition(from: IssueStatus, to: IssueStatus): void {
       { from, to, allowed: transitions[from] },
     );
   }
+
+  return { from, to, [validatedIssueTransition]: true };
 }
 
 export function history(

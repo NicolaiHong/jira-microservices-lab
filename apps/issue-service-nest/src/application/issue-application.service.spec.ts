@@ -8,7 +8,12 @@ import type {
   ProjectAccessPort,
   UpdateIssueData,
 } from './ports';
-import type { Issue, IssueComment, IssueHistory } from '../domain/issue';
+import type {
+  Issue,
+  IssueComment,
+  IssueHistory,
+  ValidatedIssueTransition,
+} from '../domain/issue';
 import { DomainError } from '../domain/errors';
 
 const ids = {
@@ -47,7 +52,10 @@ interface FakeRepository extends IssueRepository {
   current: Issue;
   updateCalls: Array<{ expectedVersion: number; data: UpdateIssueData }>;
   assignmentCalls: Array<{ expectedVersion: number; assigneeUserId: string | null }>;
-  transitionCalls: Array<{ expectedVersion: number; status: string }>;
+  transitionCalls: Array<{
+    expectedVersion: number;
+    transition: ValidatedIssueTransition;
+  }>;
   creates: NewIssueData[];
 }
 
@@ -56,7 +64,10 @@ function fakeRepository(current = issue()): FakeRepository {
     current,
     updateCalls: [] as Array<{ expectedVersion: number; data: UpdateIssueData }>,
     assignmentCalls: [] as Array<{ expectedVersion: number; assigneeUserId: string | null }>,
-    transitionCalls: [] as Array<{ expectedVersion: number; status: string }>,
+    transitionCalls: [] as Array<{
+      expectedVersion: number;
+      transition: ValidatedIssueTransition;
+    }>,
     creates: [] as NewIssueData[],
     async createIssue(data: NewIssueData) {
       repository.creates.push(data);
@@ -100,11 +111,15 @@ function fakeRepository(current = issue()): FakeRepository {
       repository.current = { ...currentIssue, assigneeUserId, version: expectedVersion + 1 };
       return repository.current;
     },
-    async transitionIssue(currentIssue: Issue, expectedVersion: number, status: string) {
-      repository.transitionCalls.push({ expectedVersion, status });
+    async transitionIssue(
+      currentIssue: Issue,
+      expectedVersion: number,
+      transition: ValidatedIssueTransition,
+    ) {
+      repository.transitionCalls.push({ expectedVersion, transition });
       repository.current = {
         ...currentIssue,
-        status: status as Issue['status'],
+        status: transition.to,
         version: expectedVersion + 1,
       };
       return repository.current;
@@ -191,24 +206,28 @@ function service(repository = fakeRepository(), status: 'ACTIVE' | 'ARCHIVED' = 
   };
 }
 
-test('requires a positive expectedVersion for every Issue Core mutation', async () => {
-  const { application } = service();
-  for (const invoke of [
-    () => application.updateIssue(ids.issue, {}, context),
-    () => application.assignIssue(ids.issue, { assigneeUserId: null }, context),
-    () => application.transitionIssue(ids.issue, { status: 'IN_PROGRESS' }, context),
-    () => application.updateIssue(ids.issue, { expectedVersion: 0 }, context),
-    () => application.assignIssue(ids.issue, { expectedVersion: '1' }, context),
+test('requires a positive safe integer expectedVersion for real Issue Core mutations', async () => {
+  for (const body of [
+    { status: 'IN_PROGRESS' },
+    { status: 'IN_PROGRESS', expectedVersion: 0 },
+    { status: 'IN_PROGRESS', expectedVersion: -1 },
+    { status: 'IN_PROGRESS', expectedVersion: 1.5 },
+    { status: 'IN_PROGRESS', expectedVersion: '1' },
   ]) {
-    await assert.rejects(invoke, (error: unknown) => {
+    const { application, repository } = service();
+    await assert.rejects(
+      application.transitionIssue(ids.issue, body, context),
+      (error: unknown) => {
       assert.ok(error instanceof DomainError);
       assert.equal(error.status, 400);
       assert.equal(error.code, 'VALIDATION_ERROR');
       assert.deepEqual(error.details, {
         expectedVersion: 'expectedVersion must be a positive integer',
       });
-      return true;
-    });
+        return true;
+      },
+    );
+    assert.equal(repository.transitionCalls.length, 0);
   }
 });
 
@@ -269,10 +288,9 @@ test('uses the rendered expectedVersion for successful details, assignment, and 
     context,
   );
   assert.equal(transitioned.issue.version, 6);
-  assert.deepEqual(repository.transitionCalls[0], {
-    expectedVersion: 5,
-    status: 'IN_PROGRESS',
-  });
+  assert.equal(repository.transitionCalls[0].expectedVersion, 5);
+  assert.equal(repository.transitionCalls[0].transition.from, 'TODO');
+  assert.equal(repository.transitionCalls[0].transition.to, 'IN_PROGRESS');
 });
 
 test('rejects stale expectedVersions before details, assignment, or transition persistence', async () => {
@@ -296,6 +314,67 @@ test('rejects stale expectedVersions before details, assignment, or transition p
   assert.equal(repository.transitionCalls.length, 0);
 });
 
+test('preserves transition input, project, version, and graph error precedence', async () => {
+  for (const body of [{ expectedVersion: 1 }, { status: 'not-a-status', expectedVersion: 1 }]) {
+    const { application, access } = service(fakeRepository(), 'ARCHIVED');
+    await assert.rejects(
+      application.transitionIssue(ids.issue, body, context),
+      (error: unknown) =>
+        error instanceof DomainError &&
+        error.status === 400 &&
+        error.code === 'VALIDATION_ERROR',
+    );
+    assert.deepEqual(access.calls, []);
+  }
+
+  for (const body of [
+    { status: 'IN_PROGRESS' },
+    { status: 'IN_PROGRESS', expectedVersion: 0 },
+    { status: 'IN_PROGRESS', expectedVersion: 1 },
+  ]) {
+    const { application, repository } = service(
+      fakeRepository(body.expectedVersion === 1 ? issue(2) : issue()),
+      'ARCHIVED',
+    );
+    await assert.rejects(
+      application.transitionIssue(ids.issue, body, context),
+      (error: unknown) =>
+        error instanceof DomainError &&
+        error.status === 409 &&
+        error.code === 'PROJECT_ARCHIVED',
+    );
+    assert.equal(repository.transitionCalls.length, 0);
+  }
+
+  const stale = service(fakeRepository(issue(2)));
+  await assert.rejects(
+    stale.application.transitionIssue(
+      ids.issue,
+      { status: 'DONE', expectedVersion: 1 },
+      context,
+    ),
+    (error: unknown) =>
+      error instanceof DomainError &&
+      error.status === 409 &&
+      error.code === 'CONCURRENT_ISSUE_MODIFICATION',
+  );
+  assert.equal(stale.repository.transitionCalls.length, 0);
+
+  const illegal = service();
+  await assert.rejects(
+    illegal.application.transitionIssue(
+      ids.issue,
+      { status: 'DONE', expectedVersion: 1 },
+      context,
+    ),
+    (error: unknown) =>
+      error instanceof DomainError &&
+      error.status === 409 &&
+      error.code === 'INVALID_ISSUE_TRANSITION',
+  );
+  assert.equal(illegal.repository.transitionCalls.length, 0);
+});
+
 test('preserves omitted descriptions and normalizes clear and trim semantics', async () => {
   const cases: Array<[unknown, string | null]> = [
     [undefined, 'Original description'],
@@ -306,14 +385,17 @@ test('preserves omitted descriptions and normalizes clear and trim semantics', a
   ];
   for (const [description, expected] of cases) {
     const { application, repository } = service();
-    const body: Record<string, unknown> = { expectedVersion: 1 };
+    const body: Record<string, unknown> = {
+      expectedVersion: 1,
+      summary: 'Updated summary',
+    };
     if (description !== undefined) body.description = description;
     await application.updateIssue(ids.issue, body, context);
     assert.equal(repository.updateCalls[0].data.description, expected);
   }
 });
 
-test('rejects overlong descriptions and immutable core PATCH fields', async () => {
+test('rejects overlong descriptions and all public immutable core PATCH fields', async () => {
   const { application } = service();
   await assert.rejects(
     application.updateIssue(
@@ -324,15 +406,48 @@ test('rejects overlong descriptions and immutable core PATCH fields', async () =
     (error: unknown) => error instanceof DomainError && error.code === 'VALIDATION_ERROR',
   );
 
-  for (const field of ['reporterUserId', 'projectId', 'issueKey', 'issueNumber', 'status']) {
+  for (const field of [
+    'status',
+    'key',
+    'number',
+    'reporterUserId',
+    'projectId',
+    'issueKey',
+    'issueNumber',
+  ]) {
     await assert.rejects(
-      application.updateIssue(ids.issue, { expectedVersion: 1, [field]: 'changed' }, context),
-      (error: unknown) =>
-        error instanceof DomainError &&
-        error.status === 400 &&
-        error.code === 'VALIDATION_ERROR',
+      application.updateIssue(ids.issue, { [field]: 'changed' }, context),
+      (error: unknown) => {
+        assert.ok(error instanceof DomainError);
+        assert.equal(error.status, 400);
+        assert.equal(error.code, 'VALIDATION_ERROR');
+        assert.deepEqual(error.details, { [field]: `${field} cannot be updated` });
+        return true;
+      },
     );
   }
+});
+
+test('returns no-mutable PATCHes as visible reads without CAS or side effects', async () => {
+  const { application, repository, access } = service();
+
+  for (const body of [{}, { expectedVersion: 1 }, { expectedVersion: 999 }]) {
+    const result = await application.updateIssue(ids.issue, body, context);
+    assert.equal(result.issue.id, ids.issue);
+    assert.equal(result.issue.version, 1);
+  }
+
+  assert.equal(repository.updateCalls.length, 0);
+  assert.deepEqual(access.calls, [ids.reporter, ids.reporter, ids.reporter]);
+
+  await assert.rejects(
+    application.updateIssue(ids.issue, { expectedVersion: 0 }, context),
+    (error: unknown) =>
+      error instanceof DomainError &&
+      error.status === 400 &&
+      error.code === 'VALIDATION_ERROR',
+  );
+  assert.equal(repository.updateCalls.length, 0);
 });
 
 test('derives reporter provenance, normalizes creation values, and checks a supplied assignee', async () => {
@@ -408,6 +523,33 @@ test('allows issue creation and reads for OWNER, ADMIN, and MEMBER while hiding 
   );
 });
 
+test('allows MEMBER, ADMIN, and OWNER transitions while concealing issues from non-members', async () => {
+  for (const userId of [ids.member, ids.admin, ids.reporter]) {
+    const { application, repository } = service();
+    const result = await application.transitionIssue(
+      ids.issue,
+      { status: 'IN_PROGRESS', expectedVersion: 1 },
+      { ...context, userId },
+    );
+    assert.equal(result.issue.status, 'IN_PROGRESS');
+    assert.equal(repository.transitionCalls.length, 1);
+  }
+
+  const { application, repository } = service();
+  await assert.rejects(
+    application.transitionIssue(
+      ids.issue,
+      { status: 'IN_PROGRESS', expectedVersion: 1 },
+      { ...context, userId: ids.outsider },
+    ),
+    (error: unknown) =>
+      error instanceof DomainError &&
+      error.status === 404 &&
+      error.code === 'ISSUE_NOT_FOUND',
+  );
+  assert.equal(repository.transitionCalls.length, 0);
+});
+
 test('does not remove an assignee from existing issue data after that user loses access', async () => {
   const repository = fakeRepository({ ...issue(), assigneeUserId: ids.outsider });
   const { application } = service(repository);
@@ -415,14 +557,14 @@ test('does not remove an assignee from existing issue data after that user loses
   assert.equal(read.issue.assigneeUserId, ids.outsider);
 });
 
-test('keeps archived issues readable while blocking all Issue Core writes', async () => {
+test('keeps archived issues readable while blocking real Issue Core writes', async () => {
   const { application, repository } = service(fakeRepository(), 'ARCHIVED');
   await assert.doesNotReject(application.listIssues(ids.project, context));
   await assert.doesNotReject(application.getIssue(ids.issue, context));
 
   for (const invoke of [
     () => application.createIssue(ids.project, { summary: 'New', type: 'TASK', priority: 'LOW' }, context),
-    () => application.updateIssue(ids.issue, { expectedVersion: 1 }, context),
+    () => application.updateIssue(ids.issue, { expectedVersion: 1, summary: 'Blocked' }, context),
     () => application.assignIssue(ids.issue, { expectedVersion: 1, assigneeUserId: null }, context),
     () => application.transitionIssue(ids.issue, { expectedVersion: 1, status: 'IN_PROGRESS' }, context),
   ]) {
@@ -436,4 +578,13 @@ test('keeps archived issues readable while blocking all Issue Core writes', asyn
   assert.equal(repository.updateCalls.length, 0);
   assert.equal(repository.assignmentCalls.length, 0);
   assert.equal(repository.transitionCalls.length, 0);
+});
+
+test('allows archived-project no-mutable PATCH reads without a write', async () => {
+  const { application, repository } = service(fakeRepository(), 'ARCHIVED');
+  const result = await application.updateIssue(ids.issue, {}, context);
+
+  assert.equal(result.issue.id, ids.issue);
+  assert.equal(result.issue.version, 1);
+  assert.equal(repository.updateCalls.length, 0);
 });

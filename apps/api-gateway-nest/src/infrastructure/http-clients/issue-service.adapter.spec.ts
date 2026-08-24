@@ -4,6 +4,41 @@ import { IssueServiceAdapter } from './issue-service.adapter';
 
 const context = { userId: 'user-123', correlationId: 'request-123' };
 
+test('forwards an opaque transition body to the exact Issue Service route without the browser bearer token', async () => {
+  const restore = configureEnvironment();
+  const originalFetch = globalThis.fetch;
+  const requests: Array<{ input: string; init?: RequestInit }> = [];
+  const transition = {
+    status: 'IN_PROGRESS',
+    expectedVersion: 5,
+    passthrough: { keep: 'this object unchanged' },
+  };
+  globalThis.fetch = (async (input, init) => {
+    requests.push({ input: String(input), init });
+    return new Response(JSON.stringify({ issue: { id: 'issue-123' } }), { status: 200 });
+  }) as typeof fetch;
+
+  try {
+    await new IssueServiceAdapter().transitionIssue('issue / 1', transition, context);
+
+    assert.equal(requests.length, 1);
+    const request = requests[0];
+    assert.equal(request.input, 'http://issue-service.test/internal/issues/issue%20%2F%201/transitions');
+    assert.equal(request.init?.method, 'POST');
+    assert.equal(request.init?.body, JSON.stringify(transition));
+
+    const headers = new Headers(request.init?.headers);
+    assert.equal(headers.get('content-type'), 'application/json');
+    assert.equal(headers.get('x-authenticated-user-id'), context.userId);
+    assert.equal(headers.get('x-correlation-id'), context.correlationId);
+    assert.equal(headers.get('x-internal-service-secret'), 'test-internal-secret');
+    assert.equal(headers.get('authorization'), null);
+  } finally {
+    globalThis.fetch = originalFetch;
+    restore();
+  }
+});
+
 test('forwards Issue Core expectedVersion bodies with identity, correlation, and internal credentials', async () => {
   const restore = configureEnvironment();
   const originalFetch = globalThis.fetch;
@@ -104,6 +139,83 @@ test('preserves a downstream 409 and documents Issue Service unavailability as 5
         return true;
       },
     );
+  } finally {
+    globalThis.fetch = originalFetch;
+    restore();
+  }
+});
+
+test('preserves each documented transition conflict code without retrying', async () => {
+  const restore = configureEnvironment();
+  const originalFetch = globalThis.fetch;
+  try {
+    for (const code of [
+      'INVALID_ISSUE_TRANSITION',
+      'CONCURRENT_ISSUE_MODIFICATION',
+      'PROJECT_ARCHIVED',
+    ]) {
+      let fetchCalls = 0;
+      globalThis.fetch = (async () => {
+        fetchCalls += 1;
+        return new Response(
+          JSON.stringify({
+            code,
+            message: `${code} from Issue Service`,
+            details: { source: 'issue-service' },
+          }),
+          { status: 409 },
+        );
+      }) as typeof fetch;
+
+      await assert.rejects(
+        new IssueServiceAdapter().transitionIssue(
+          'issue-123',
+          { status: 'IN_PROGRESS', expectedVersion: 1 },
+          context,
+        ),
+        (error: unknown) => {
+          assert.ok(error instanceof Error);
+          assert.equal((error as Error & { statusCode?: number }).statusCode, 409);
+          assert.equal((error as Error & { code?: string }).code, code);
+          assert.deepEqual(
+            (error as Error & { details?: Record<string, unknown> }).details,
+            { source: 'issue-service' },
+          );
+          return true;
+        },
+      );
+      assert.equal(fetchCalls, 1);
+    }
+  } finally {
+    globalThis.fetch = originalFetch;
+    restore();
+  }
+});
+
+test('maps a transition transport failure to one stable 503 without retrying', async () => {
+  const restore = configureEnvironment();
+  const originalFetch = globalThis.fetch;
+  let fetchCalls = 0;
+  globalThis.fetch = (async () => {
+    fetchCalls += 1;
+    throw new Error('connection refused');
+  }) as typeof fetch;
+
+  try {
+    await assert.rejects(
+      new IssueServiceAdapter().transitionIssue(
+        'issue-123',
+        { status: 'IN_PROGRESS', expectedVersion: 1 },
+        context,
+      ),
+      (error: unknown) => {
+        assert.ok(error instanceof Error);
+        assert.equal((error as Error & { statusCode?: number }).statusCode, 503);
+        assert.equal((error as Error & { code?: string }).code, 'ISSUE_SERVICE_UNAVAILABLE');
+        return true;
+      },
+    );
+    assert.equal(fetchCalls, 1);
   } finally {
     globalThis.fetch = originalFetch;
     restore();

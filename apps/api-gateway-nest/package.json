@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
-    "test": "node --test --require ts-node/register src/infrastructure/http-clients/project-service.adapter.spec.ts src/infrastructure/http-clients/issue-service.adapter.spec.ts",
+    "test": "node --test --require ts-node/register src/infrastructure/http-clients/project-service.adapter.spec.ts src/infrastructure/http-clients/issue-service.adapter.spec.ts src/presentation/issues/issues.controller.spec.ts",
     "start": "node dist/main.js",
     "start:dev": "ts-node src/main.ts"
   },

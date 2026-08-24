@@ -1,6 +1,6 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const apiMocks = vi.hoisted(() => ({
   updateIssue: vi.fn(),
@@ -10,6 +10,7 @@ const apiMocks = vi.hoisted(() => ({
 vi.mock("../../api", () => ({
   updateIssue: apiMocks.updateIssue,
   assignIssue: apiMocks.assignIssue,
+  getIssueErrorCode: () => undefined,
   isConcurrentIssueModification: () => false,
 }));
 
@@ -40,16 +41,22 @@ const issue = {
   updatedAt: "2026-08-24T00:00:00.000Z",
 };
 
-function renderDetails() {
+function renderDetails(isProjectWritable = true) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={queryClient}>
-      <IssueDetailModal issue={issue} issueId={issue.id} />
+      <IssueDetailModal
+        isProjectWritable={isProjectWritable}
+        issue={issue}
+        issueId={issue.id}
+      />
     </QueryClientProvider>,
   );
 }
 
 describe("Issue details mutations", () => {
+  afterEach(cleanup);
+
   beforeEach(() => {
     apiMocks.updateIssue.mockReset();
     apiMocks.assignIssue.mockReset();
@@ -83,5 +90,29 @@ describe("Issue details mutations", () => {
     await waitFor(() => {
       expect(apiMocks.assignIssue).toHaveBeenCalledWith("issue-1", "member-2", 7);
     });
+  });
+
+  it("keeps details, comments, and history readable while disabling archived-project writes", () => {
+    const { container } = renderDetails(false);
+
+    expect(screen.getByText("Original summary")).toBeInTheDocument();
+    expect(screen.getByText("Comments")).toBeInTheDocument();
+    expect(screen.getByText("History")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("Original summary")).toBeDisabled();
+    expect(
+      screen.getByPlaceholderText("Member UUID; empty to unassign"),
+    ).toBeDisabled();
+    expect(screen.getByPlaceholderText("Write a comment")).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Save issue" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Update assignee" }),
+    ).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Add" })).toBeDisabled();
+
+    fireEvent.submit(container.querySelectorAll("form")[0]);
+    fireEvent.submit(container.querySelectorAll("form")[2]);
+
+    expect(apiMocks.updateIssue).not.toHaveBeenCalled();
+    expect(apiMocks.assignIssue).not.toHaveBeenCalled();
   });
 });

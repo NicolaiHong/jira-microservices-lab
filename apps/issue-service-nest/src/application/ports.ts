@@ -1,4 +1,9 @@
-import type { Issue, IssueComment, IssueHistory } from '../domain/issue';
+import type {
+  Issue,
+  IssueComment,
+  IssueHistory,
+  ValidatedIssueTransition,
+} from '../domain/issue';
 import type { Epic, Sprint } from '../domain/planning';
 
 export const ISSUE_REPOSITORY = Symbol('ISSUE_REPOSITORY');
@@ -71,7 +76,7 @@ export interface IssueRepository {
   transitionIssue(
     issue: Issue,
     expectedVersion: number,
-    status: string,
+    transition: ValidatedIssueTransition,
     actorUserId: string,
   ): Promise<Issue>;
   addComment(

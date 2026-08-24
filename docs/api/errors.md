@@ -22,3 +22,7 @@ Common implemented API failure shape.
 | Dependency (`503`) | `IAM_SERVICE_UNAVAILABLE`, `PROJECT_SERVICE_UNAVAILABLE`, `ISSUE_SERVICE_UNAVAILABLE`, `NOTIFICATION_SERVICE_UNAVAILABLE` |
 
 Exact error values are service-defined; callers should branch on documented codes, not prose messages.
+
+## Issue transition precedence
+
+For `POST /api/issues/{issueId}/transitions`, request/body and status validation run first, followed by Project visibility/active-write validation, expected-version validation and conflict detection, then workflow-edge legality. Consequently an invalid or missing status is `400 VALIDATION_ERROR`; an archived Project is `409 PROJECT_ARCHIVED`; a stale version is `409 CONCURRENT_ISSUE_MODIFICATION`; and an otherwise current illegal/same-state edge is `409 INVALID_ISSUE_TRANSITION`. Gateway forwards these Issue Service codes unchanged.

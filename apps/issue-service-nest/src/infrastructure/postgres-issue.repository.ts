@@ -15,6 +15,7 @@ import type {
   IssuePriority,
   IssueStatus,
   IssueType,
+  ValidatedIssueTransition,
 } from '../domain/issue';
 import { Database } from './database';
 
@@ -225,7 +226,7 @@ export class PostgresIssueRepository implements IssueRepository {
   transitionIssue(
     issue: Issue,
     expectedVersion: number,
-    status: string,
+    transition: ValidatedIssueTransition,
     actorUserId: string,
   ): Promise<Issue> {
     return this.database.transaction(async (client) => {
@@ -234,20 +235,20 @@ export class PostgresIssueRepository implements IssueRepository {
         issue,
         expectedVersion,
         'status = $1',
-        [status],
+        [transition.to],
       );
       await this.insertHistory(
         client,
         updated,
         actorUserId,
         'STATUS_CHANGED',
-        { status: issue.status },
-        { status },
+        { status: transition.from },
+        { status: transition.to },
       );
       await this.insertEvent(client, updated, actorUserId, 'issue.transitioned', {
         issueKey: updated.key,
-        fromStatus: issue.status,
-        toStatus: status,
+        fromStatus: transition.from,
+        toStatus: transition.to,
         recipientUserIds: this.recipients(
           [updated.reporterUserId, updated.assigneeUserId],
           actorUserId,

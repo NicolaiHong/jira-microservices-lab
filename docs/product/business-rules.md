@@ -22,7 +22,7 @@ Creating a workspace creates an `OWNER` membership for its creator in the same s
 
 ### BR-PROJ-001 — Project uniqueness and archival
 
-Project names are trimmed, at most 120 characters, and unique case-insensitively within a workspace while preserving display casing. Project keys are trimmed, uppercased ASCII letters/numbers, at most 20 characters, and unique within a workspace. Archived projects cannot change and reject issue/planning writes; archiving is idempotent. Archived-project issues remain readable to members, but creation, details changes, assignment, and status transitions return `PROJECT_ARCHIVED`. A detail mutation writes only while the persisted Project is active, so a committed archive prevents a stale later detail update.
+Project names are trimmed, at most 120 characters, and unique case-insensitively within a workspace while preserving display casing. Project keys are trimmed, uppercased ASCII letters/numbers, at most 20 characters, and unique within a workspace. Archived projects cannot change and reject issue/planning writes; archiving is idempotent. Archived-project issues remain readable to members, but creation, details changes, assignment, and status transitions return `PROJECT_ARCHIVED`. Each issue write performs a request-time active-Project check; because Project and Issue own separate stores, an archive that commits after that check can still race the Issue write (accepted TOCTOU boundary).
 
 For a Project PATCH, omitted `name` and `description` preserve their stored values; explicit `description: null` clears it; whitespace-only descriptions normalize to null. An empty PATCH returns the current Project without changing `updated_at`.
 
@@ -40,11 +40,15 @@ Assignee is optional and, when supplied, must currently have workspace access to
 
 ### BR-STATUS-001 — Fixed status transitions
 
-Only `TODO → IN_PROGRESS`, `IN_PROGRESS → TODO|DONE`, and `DONE → IN_PROGRESS` are valid. Same-state transitions are invalid.
+Issues start in `TODO`. The only valid transitions are `TODO → IN_PROGRESS`, `IN_PROGRESS → TODO|DONE`, and `DONE → IN_PROGRESS`. Same-state transitions and every other edge are invalid. `DONE` is reopenable, so there is no terminal issue state. The same graph applies to `TASK`, `BUG`, and `STORY`; visible `MEMBER`, `ADMIN`, and `OWNER` memberships have equal transition permissions on an active Project.
 
-### BR-ISSUE-004 — Change history and delivery event
+### BR-ISSUE-004 — Change history, delivery event, and concurrency
 
-Creation, detail updates, assignment, transitions, and comments each create issue history and an outbox event in the local issue transaction. Core detail PATCH, assignment PATCH, and status transition require a positive integer `expectedVersion`. The service first rejects a loaded-version mismatch with `409 CONCURRENT_ISSUE_MODIFICATION`; its PostgreSQL `UPDATE ... WHERE id = ? AND version = expectedVersion` compare-and-swap remains authoritative. A stale write has no Issue, history, or outbox side effects and is never automatically retried.
+Creation, real detail updates, assignment, transitions, and comments each create issue history and an outbox event in their local Issue Service transaction. A real core-detail PATCH, assignment PATCH, and status transition require a positive safe-integer `expectedVersion`. A core PATCH with none of `summary`, `description`, `type`, or `priority` is a visibility-only no-op: it validates body shape and validates `expectedVersion` syntax only when supplied, returns the current Issue, and creates no CAS, version, history, or outbox side effect.
+
+For a transition, validation occurs in this order: request/body and requested-status validation; Project visibility and active-write validation; `expectedVersion` validation and loaded-version conflict check; then graph legality. PostgreSQL `UPDATE ... WHERE id = ? AND version = expectedVersion` remains authoritative. A stale write returns `409 CONCURRENT_ISSUE_MODIFICATION`, has no Issue/history/outbox side effects, and is never automatically retried.
+
+A successful transition changes the status and increments the version once, writes exactly one `STATUS_CHANGED` history row, and writes exactly one `issue.transitioned` outbox event in the same PostgreSQL transaction. Failure of any of those local persistence steps rolls the transition back.
 
 ### BR-PLAN-001 — One active sprint
 
