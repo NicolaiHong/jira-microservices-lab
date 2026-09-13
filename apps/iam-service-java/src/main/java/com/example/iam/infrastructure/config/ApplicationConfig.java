@@ -2,6 +2,7 @@ package com.example.iam.infrastructure.config;
 
 import com.example.iam.application.usecase.LoginUseCase;
 import com.example.iam.application.usecase.LogoutUseCase;
+import com.example.iam.application.usecase.LookupUsersUseCase;
 import com.example.iam.application.usecase.RefreshSessionUseCase;
 import com.example.iam.application.usecase.RegisterUseCase;
 import com.example.iam.domain.port.PasswordHasher;
@@ -55,6 +56,11 @@ public class ApplicationConfig {
             refreshTokenRepository,
             tokenProvider
         );
+    }
+
+    @Bean
+    public LookupUsersUseCase lookupUsersUseCase(UserRepository userRepository) {
+        return new LookupUsersUseCase(userRepository);
     }
 
     @Bean

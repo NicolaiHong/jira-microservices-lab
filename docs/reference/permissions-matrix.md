@@ -10,6 +10,7 @@ Exact authorization lookup for verified API behaviour.
 | List own workspaces | No | Yes | Yes | Yes |
 | Create workspace | No | Yes | Yes | Yes |
 | Read workspace projects | No | Yes | Yes | Yes |
+| List workspace members with emails | No | Yes | Yes | Yes |
 | Create/update/archive project | No | No | Yes | Yes |
 | Add/change/remove non-owner member | No | No | Yes | Yes |
 | Grant/change/remove owner role | No | No | No | Yes |
@@ -17,4 +18,4 @@ Exact authorization lookup for verified API behaviour.
 | Manage epics/sprints | No | Yes, active project for writes | Yes, active project for writes | Yes, active project for writes |
 | Read/mark notifications | No | Own only | Own only | Own only |
 
-Non-members receive not-found responses for workspace/project visibility checks. API-level membership management exists; the web client currently has no verified management screen.
+Non-members receive not-found responses for workspace/project visibility checks. The `/projects` dashboard shows role and removal controls only for memberships the caller's role may change.

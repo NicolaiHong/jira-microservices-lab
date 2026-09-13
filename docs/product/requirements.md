@@ -20,7 +20,7 @@ An authenticated user can create a uniquely slugged workspace and list only work
 
 ### WS-002 — Manage workspace membership
 
-`OWNER` and `ADMIN` can add, change, and remove members subject to owner safeguards. The last `OWNER` cannot be removed or demoted; only an `OWNER` can grant or modify an owner role.
+`OWNER` and `ADMIN` can add, change, and remove members subject to owner safeguards. The last `OWNER` cannot be removed or demoted; only an `OWNER` can grant or modify an owner role. A member is added by user ID or by the email of a registered account. Every workspace member can list the workspace's members with their account emails.
 
 ### PROJ-001 — Manage projects
 

@@ -44,6 +44,14 @@ export class ProjectsController {
     return this.projectsService.createProject(workspaceId, body, request.user?.userId, getCorrelationId(request));
   }
 
+  @Get('workspaces/:workspaceId/members')
+  listWorkspaceMembers(
+    @Param('workspaceId') workspaceId: string,
+    @Req() request: AuthenticatedRequest,
+  ): Promise<unknown> {
+    return this.projectsService.listWorkspaceMembers(workspaceId, request.user?.userId, getCorrelationId(request));
+  }
+
   @Post('workspaces/:workspaceId/members')
   addWorkspaceMember(
     @Param('workspaceId') workspaceId: string,

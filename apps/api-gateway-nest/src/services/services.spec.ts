@@ -15,7 +15,7 @@ test('domain routing services require identity and forward context and errors wi
   const calls: unknown[][] = [];
   const error = new AppException(409, 'CONFLICT', 'conflict');
   const forward = async (...args: unknown[]) => { calls.push(args); throw error; };
-  const project = new ProjectsService({ getProject: forward } as unknown as ProjectServiceAdapter);
+  const project = new ProjectsService({ getProject: forward } as unknown as ProjectServiceAdapter, {} as RedisRateLimitAdapter);
   const issue = new IssuesService({ getIssue: forward } as unknown as IssueServiceAdapter);
   const notification = new NotificationsService({ markRead: forward } as unknown as NotificationServiceAdapter);
   const operations = [
@@ -50,4 +50,32 @@ test('auth applies registration, login and refresh limits before forwarding and 
   }
   assert.equal(forwarded.length, 1);
   assert.deepEqual(keys, ['rate:auth:refresh:ip:127.0.0.1', 'rate:auth:refresh:ip:127.0.0.1', 'rate:auth:register:ip:127.0.0.1', 'rate:auth:login:ip:127.0.0.1']);
+});
+
+test('member additions are rate limited per authenticated user before forwarding', async () => {
+  let limited = false;
+  const keys: string[] = [];
+  const forwarded: unknown[][] = [];
+  const adapter = {
+    addWorkspaceMember: async (...args: unknown[]) => { forwarded.push(args); return { member: {} }; },
+  } as unknown as ProjectServiceAdapter;
+  const limiter = {
+    hit: async (key: string, limit: number) => { keys.push(key); return { limited, limit, count: 21, ttlSeconds: 120 }; },
+  } as unknown as RedisRateLimitAdapter;
+  const service = new ProjectsService(adapter, limiter);
+  const body = { email: 'a@example.test', role: 'MEMBER' };
+
+  await service.addWorkspaceMember('workspace', body, 'user', 'correlation');
+  limited = true;
+  await assert.rejects(
+    service.addWorkspaceMember('workspace', body, 'user', 'correlation'),
+    (e: unknown) => e instanceof AppException && e.statusCode === 429 && e.code === 'RATE_LIMITED',
+  );
+  await assert.rejects(
+    service.addWorkspaceMember('workspace', body, undefined, 'correlation'),
+    (e: unknown) => e instanceof AppException && e.statusCode === 401,
+  );
+
+  assert.deepEqual(forwarded, [['workspace', body, { userId: 'user', correlationId: 'correlation' }]]);
+  assert.deepEqual(keys, ['rate:workspace-member-add:user:user', 'rate:workspace-member-add:user:user']);
 });

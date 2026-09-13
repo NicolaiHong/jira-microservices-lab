@@ -105,7 +105,18 @@ public static class ProjectDtoMapper
         AddWorkspaceMemberRequest? request) =>
         request is null
             ? null
-            : new AppDtos.AddWorkspaceMemberCommand(request.UserId, request.Role);
+            : new AppDtos.AddWorkspaceMemberCommand(request.UserId, request.Role, request.Email);
+
+    public static ListWorkspaceMembersResponse ToResponse(
+        AppDtos.ListWorkspaceMembersResult result) =>
+        new(result.Items
+            .Select(member => new WorkspaceMemberListItemResponse(
+                member.UserId,
+                member.Email,
+                member.Role,
+                member.JoinedAt,
+                member.UpdatedAt))
+            .ToList());
 
     public static AppDtos.ChangeWorkspaceMemberRoleCommand? ToCommand(
         ChangeWorkspaceMemberRoleRequest? request) =>

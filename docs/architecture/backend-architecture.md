@@ -12,4 +12,4 @@ Define server responsibilities and interaction style.
 | Issue | Issues, comments, history, epics, sprints, outbox | Gateway internal HTTP |
 | Notification | Kafka consumer and recipient notification projection | Kafka and Gateway internal HTTP |
 
-Request-time access checks use HTTP: Issue asks Project for membership and project status. Cross-service notification propagation uses `issue.events.v1`, not a distributed transaction.
+Request-time access checks use HTTP: Issue asks Project for membership and project status, and Project asks IAM for member emails. Cross-service notification propagation uses `issue.events.v1`, not a distributed transaction.

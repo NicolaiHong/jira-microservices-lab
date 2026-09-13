@@ -2,13 +2,22 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  addWorkspaceMember,
+  changeWorkspaceMemberRole,
   createProject,
   createWorkspace,
   getProject,
   listProjects,
+  listWorkspaceMembers,
   listWorkspaces,
+  removeWorkspaceMember,
 } from "../api";
-import type { CreateProjectPayload, CreateWorkspacePayload } from "../types";
+import type {
+  AddWorkspaceMemberPayload,
+  CreateProjectPayload,
+  CreateWorkspacePayload,
+  WorkspaceRole,
+} from "../types";
 
 export function useWorkspaces() {
   return useQuery({ queryKey: ["workspaces"], queryFn: listWorkspaces });
@@ -46,4 +55,40 @@ export function useCreateProject(workspaceId?: string) {
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: ["projects", workspaceId] }),
   });
+}
+
+export function useWorkspaceMembers(workspaceId?: string) {
+  return useQuery({
+    queryKey: ["workspace-members", workspaceId],
+    queryFn: () => listWorkspaceMembers(workspaceId as string),
+    enabled: Boolean(workspaceId),
+  });
+}
+
+/** Members of the workspace that owns the project; shares the project and member caches. */
+export function useProjectMembers(projectId?: string) {
+  const project = useProject(projectId);
+  return useWorkspaceMembers(project.data?.workspaceId);
+}
+
+export function useManageWorkspaceMembers(workspaceId: string) {
+  const queryClient = useQueryClient();
+  const onSuccess = () =>
+    queryClient.invalidateQueries({ queryKey: ["workspace-members", workspaceId] });
+  return {
+    add: useMutation({
+      mutationFn: (payload: AddWorkspaceMemberPayload) =>
+        addWorkspaceMember(workspaceId, payload),
+      onSuccess,
+    }),
+    changeRole: useMutation({
+      mutationFn: ({ userId, role }: { userId: string; role: WorkspaceRole }) =>
+        changeWorkspaceMemberRole(workspaceId, userId, role),
+      onSuccess,
+    }),
+    remove: useMutation({
+      mutationFn: (userId: string) => removeWorkspaceMember(workspaceId, userId),
+      onSuccess,
+    }),
+  };
 }

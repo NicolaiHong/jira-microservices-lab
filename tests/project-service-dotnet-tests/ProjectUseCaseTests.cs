@@ -13,7 +13,7 @@ public sealed class ProjectUseCaseTests
     public async Task MembershipTimestampsMatchPostgresMicrosecondPrecision()
     {
         var store = NewStore();
-        var result = await new AddWorkspaceMemberUseCase(Members(store)).ExecuteAsync(
+        var result = await new AddWorkspaceMemberUseCase(Members(store), FakeUserDirectory.Empty).ExecuteAsync(
             store.WorkspaceId, new AddWorkspaceMemberCommand(Guid.NewGuid(), WorkspaceRoles.Member),
             store.ActorId, CancellationToken.None);
         Assert.Equal(0, result.Member.JoinedAt.Ticks % 10);
@@ -380,6 +380,11 @@ public sealed class ProjectUseCaseTests
             CancellationToken cancellationToken) =>
             Task.FromResult(store.Members.SingleOrDefault(member =>
                 member.WorkspaceId == workspaceId && member.UserId == userId));
+
+        public Task<IReadOnlyList<WorkspaceMember>> ListByWorkspaceIdAsync(
+            Guid workspaceId,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<WorkspaceMember>>([]);
 
         public Task<IReadOnlyList<WorkspaceMember>> ListByUserIdAsync(
             Guid userId,

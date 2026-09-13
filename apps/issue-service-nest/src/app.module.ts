@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { HealthModule } from './health/health.module';
+import { HealthController } from './health/health.controller';
 import { IssueApplicationService } from './application/issue-application.service';
 import { PlanningApplicationService } from './application/planning-application.service';
 import { ISSUE_REPOSITORY, PLANNING_REPOSITORY, PROJECT_ACCESS_PORT } from './application/ports';
@@ -12,8 +12,7 @@ import { IssuesController } from './presentation/issues.controller';
 import { PlanningController } from './presentation/planning.controller';
 
 @Module({
-  imports: [HealthModule],
-  controllers: [IssuesController, PlanningController],
+  controllers: [HealthController, IssuesController, PlanningController],
   providers: [
     Database,
     IssueApplicationService,

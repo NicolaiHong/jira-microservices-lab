@@ -88,7 +88,17 @@ export interface IssueRepository {
   listHistory(issueId: string): Promise<IssueHistory[]>;
   pendingEvents(limit: number): Promise<OutboxEvent[]>;
   markEventPublished(eventId: string): Promise<void>;
-  recordPublishFailure(eventId: string): Promise<void>;
+  recordPublishFailure(
+    eventId: string,
+    error: string,
+  ): Promise<{ attempts: number; abandoned: boolean }>;
+  outboxStatus(): Promise<OutboxStatus>;
+}
+
+export interface OutboxStatus {
+  pending: number;
+  abandoned: number;
+  oldestPendingSeconds: number | null;
 }
 
 export interface NewEpicData {

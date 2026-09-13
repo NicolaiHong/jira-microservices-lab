@@ -19,6 +19,16 @@ public sealed class EfWorkspaceMemberRepository(ProjectDbContext dbContext)
                           member.UserId == userId,
                 cancellationToken);
 
+    public async Task<IReadOnlyList<WorkspaceMember>> ListByWorkspaceIdAsync(
+        Guid workspaceId,
+        CancellationToken cancellationToken) =>
+        await dbContext.WorkspaceMembers
+            .AsNoTracking()
+            .Where(member => member.WorkspaceId == workspaceId)
+            .OrderBy(member => member.JoinedAt)
+            .ThenBy(member => member.UserId)
+            .ToListAsync(cancellationToken);
+
     public async Task<IReadOnlyList<WorkspaceMember>> ListByUserIdAsync(
         Guid userId,
         CancellationToken cancellationToken) =>

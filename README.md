@@ -35,12 +35,16 @@ flowchart LR
   Gateway --> Project[ASP.NET Core Project]
   Gateway --> Issue[NestJS Issue]
   Gateway --> Notification[Go Notification]
+  Gateway -->|auth rate limit| Redis[(Redis)]
   IAM --> IAMDB[(iam_db)]
   Project --> ProjectDB[(project_db)]
+  Project -->|member identity lookup| IAM
   Issue --> IssueDB[(issue_db)]
-  Issue -->|issue.events.v1| Kafka[Redpanda / Kafka]
+  Issue -->|access-context| Project
+  Issue -->|outbox → issue.events.v1| Kafka[Redpanda / Kafka]
   Kafka --> Notification
-  Notification --> Redis[(Redis)]
+  Notification -->|current recipient access| Project
+  Notification -->|notification keys| Redis
 ```
 
 | Component | Technology | Responsibility | Port |

@@ -168,7 +168,12 @@ function fakeRepository(current = issue()): FakeRepository {
       return [];
     },
     async markEventPublished() {},
-    async recordPublishFailure() {},
+    async recordPublishFailure() {
+      return { attempts: 1, abandoned: false };
+    },
+    async outboxStatus() {
+      return { pending: 0, abandoned: 0, oldestPendingSeconds: null };
+    },
   };
   return repository as FakeRepository;
 }
