@@ -17,6 +17,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { getApiErrorKind, toastApiError } from "@/lib/apiError";
 
 import { useAuth } from "../hooks/useAuth";
 
@@ -48,10 +49,14 @@ export function LoginForm() {
     try {
       await auth.login(values);
       router.push("/projects");
-    } catch {
-      toast.error("Unable to sign in", {
-        description: "Check your credentials and try again.",
-      });
+    } catch (error) {
+      if (getApiErrorKind(error) === "unauthorized") {
+        toast.error("Unable to sign in", {
+          description: "Check your credentials and try again.",
+        });
+      } else {
+        toastApiError(error, "Unable to sign in");
+      }
     }
   }
 

@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { toastApiError } from "@/lib/apiError";
 import { register } from "../api";
 
 export function RegisterForm() {
@@ -21,7 +22,7 @@ export function RegisterForm() {
       await register({ email: String(form.get("email") ?? ""), password: String(form.get("password") ?? "") });
       toast.success("Account created", { description: "Sign in to continue." });
       router.push("/login");
-    } catch { toast.error("Could not create account"); }
+    } catch (error) { toastApiError(error, "Could not create account"); }
     finally { setPending(false); }
   }
 

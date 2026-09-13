@@ -5,6 +5,7 @@ import { XIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { toastApiError } from "@/lib/apiError";
 import { useCreateIssue } from "../../hooks/useIssues";
 import type { Epic, Sprint } from "../../types";
 
@@ -35,8 +36,8 @@ export function IssueForm({ projectId, epics, sprints, onClose }: IssueFormProps
       formElement.reset();
       toast.success("Issue created");
       onClose();
-    } catch {
-      toast.error("Could not create issue");
+    } catch (error) {
+      toastApiError(error, "Could not create issue");
     }
   }
 

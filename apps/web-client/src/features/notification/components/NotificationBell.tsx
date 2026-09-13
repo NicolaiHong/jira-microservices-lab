@@ -35,6 +35,8 @@ export function NotificationBell() {
                 <p className="font-medium">{item.title}</p><p className="text-xs text-muted-foreground">{item.body}</p>
               </Link>
             ))}
+            {notifications.isPending ? <p className="p-4 text-center text-sm text-muted-foreground">Loading notifications…</p> : null}
+            {notifications.isError && !notifications.data ? <p className="p-4 text-center text-sm text-destructive" role="alert">Notifications are unavailable right now.</p> : null}
             {notifications.data?.length === 0 ? <p className="p-4 text-center text-sm text-muted-foreground">No notifications yet.</p> : null}
           </div>
         </div>

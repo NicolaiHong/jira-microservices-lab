@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { toastApiError } from "@/lib/apiError";
 
 import { useCreateEpic } from "../../hooks/useIssues";
 import type { Epic } from "../../types";
@@ -63,8 +64,8 @@ export function Roadmap({
       });
       event.currentTarget.reset();
       toast.success("Epic created");
-    } catch {
-      toast.error("Could not create epic");
+    } catch (error) {
+      toastApiError(error, "Could not create epic");
     }
   }
 

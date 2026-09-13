@@ -1,4 +1,4 @@
-import axios from "axios";
+import { getApiErrorCode } from "@/lib/apiError";
 import { http } from "@/lib/http";
 import type {
   CreateIssuePayload,
@@ -16,17 +16,10 @@ export type IssueDetailsUpdate = Partial<
   Pick<Issue, "summary" | "description" | "type" | "priority">
 >;
 
-export function getIssueErrorCode(error: unknown): string | undefined {
-  if (!axios.isAxiosError(error)) {
-    return undefined;
-  }
-
-  const code = error.response?.data?.code;
-  return typeof code === "string" ? code : undefined;
-}
+export { getApiErrorCode as getIssueErrorCode } from "@/lib/apiError";
 
 export function isConcurrentIssueModification(error: unknown): boolean {
-  return getIssueErrorCode(error) === "CONCURRENT_ISSUE_MODIFICATION";
+  return getApiErrorCode(error) === "CONCURRENT_ISSUE_MODIFICATION";
 }
 
 export async function listIssues(projectId: string): Promise<Issue[]> {

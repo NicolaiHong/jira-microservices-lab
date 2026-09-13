@@ -3,9 +3,11 @@
 import { FormEvent, useState } from "react";
 import { ArrowUpRightIcon, PlusIcon } from "lucide-react";
 import { toast } from "sonner";
+import { QueryError } from "@/components/shared/QueryError";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { toastApiError } from "@/lib/apiError";
 import { ProjectList } from "./ProjectList";
 import {
   useCreateProject,
@@ -39,8 +41,8 @@ export function WorkspaceProjectDashboard() {
       setWorkspaceId(workspace.id);
       formElement.reset();
       toast.success("Workspace created");
-    } catch {
-      toast.error("Could not create workspace");
+    } catch (error) {
+      toastApiError(error, "Could not create workspace");
     }
   }
 
@@ -56,8 +58,8 @@ export function WorkspaceProjectDashboard() {
       });
       formElement.reset();
       toast.success("Project created");
-    } catch {
-      toast.error("Could not create project");
+    } catch (error) {
+      toastApiError(error, "Could not create project");
     }
   }
 
@@ -68,6 +70,8 @@ export function WorkspaceProjectDashboard() {
           <CardHeader><p className="eyebrow">Your spaces</p><CardTitle className="mt-1">Workspaces</CardTitle></CardHeader>
           <CardContent className="space-y-2">
             {workspaces.isPending ? <p className="text-sm text-muted-foreground">Loading…</p> : null}
+            {workspaces.isError ? <QueryError resource="workspaces" queries={[workspaces]} /> : null}
+            {workspaces.data?.length === 0 ? <p className="text-sm text-muted-foreground">No workspaces yet. Create your first one below.</p> : null}
             {workspaces.data?.map((workspace) => (
               <button
                 className={`w-full border px-3 py-3 text-left text-sm transition-all ${workspace.id === activeWorkspaceId ? "border-primary bg-primary text-primary-foreground shadow-[3px_3px_0_rgb(0_0_0/0.16)]" : "border-foreground/12 bg-background/55 hover:border-foreground hover:bg-background"}`}
@@ -111,12 +115,12 @@ export function WorkspaceProjectDashboard() {
             </CardContent>
           </Card>
         ) : null}
-        {!activeWorkspaceId ? (
-          <Card className="border-foreground/15"><CardContent className="p-7 text-sm text-muted-foreground">Create or select a workspace first.</CardContent></Card>
+        {workspaces.isError ? null : !activeWorkspaceId ? (
+          <Card className="border-foreground/15"><CardContent className="p-7 text-sm text-muted-foreground">{workspaces.isPending ? "Loading projects…" : "Create or select a workspace first."}</CardContent></Card>
         ) : projects.isPending ? (
           <Card className="border-foreground/15"><CardContent className="p-7 text-sm text-muted-foreground">Loading projects…</CardContent></Card>
         ) : projects.isError ? (
-          <Card className="border-foreground/15"><CardContent className="p-7 text-sm text-destructive">Project service is unavailable.</CardContent></Card>
+          <QueryError resource="projects" queries={[projects]} />
         ) : (
           <ProjectList projects={projects.data ?? []} />
         )}

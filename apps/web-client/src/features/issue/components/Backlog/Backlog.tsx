@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { toastApiError } from "@/lib/apiError";
 
 import { useCompleteSprint, useCreateSprint } from "../../hooks/useIssues";
 import type { Epic, Issue, Sprint } from "../../types";
@@ -63,8 +64,8 @@ export function Backlog({
       });
       event.currentTarget.reset();
       toast.success("Sprint started");
-    } catch {
-      toast.error("Could not start sprint");
+    } catch (error) {
+      toastApiError(error, "Could not start sprint");
     }
   }
 
@@ -76,8 +77,8 @@ export function Backlog({
     try {
       await completeSprint.mutateAsync(activeSprint.id);
       toast.success("Sprint completed");
-    } catch {
-      toast.error("Could not complete sprint");
+    } catch (error) {
+      toastApiError(error, "Could not complete sprint");
     }
   }
 

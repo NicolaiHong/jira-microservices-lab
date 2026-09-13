@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { getApiErrorMessage } from "@/lib/apiError";
 
 import { getIssueErrorCode } from "../../api";
 import { useTransitionIssue } from "../../hooks/useIssues";
@@ -64,7 +65,7 @@ function transitionErrorMessage(error: unknown) {
     case "PROJECT_ARCHIVED":
       return "Project is read-only.";
     default:
-      return "Could not move the issue. Check your connection and try again.";
+      return getApiErrorMessage(error, "Could not move the issue. Check your connection and try again.");
   }
 }
 
