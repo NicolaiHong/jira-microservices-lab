@@ -9,6 +9,7 @@ import {
   PlusIcon,
   SearchIcon,
   SlidersHorizontalIcon,
+  UserIcon,
   XIcon,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -224,8 +225,8 @@ export function Board({
                       {issue.summary}
                     </Link>
                     <div className="mt-3 flex items-center justify-between">
-                      <span className="flex size-5 items-center justify-center rounded-full bg-[#6554c0] text-[8px] font-semibold text-white">
-                        AM
+                      <span aria-label={issue.assigneeUserId ? `Assignee ${issue.assigneeUserId}` : "Unassigned"} role="img" className="flex size-5 items-center justify-center rounded-full bg-[#6554c0] text-[8px] font-semibold text-white">
+                        <UserIcon aria-hidden="true" className="size-3" />
                       </span>
                       {isProjectWritable ? (
                         <div className="flex items-center">

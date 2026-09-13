@@ -8,7 +8,6 @@ import com.example.iam.domain.exception.DomainException;
 import com.example.iam.domain.model.User;
 import com.example.iam.domain.port.PasswordHasher;
 import com.example.iam.domain.port.UserRepository;
-import java.util.Locale;
 
 public final class RegisterUseCase {
     private final UserRepository userRepository;
@@ -23,7 +22,7 @@ public final class RegisterUseCase {
     }
 
     public RegisterResult execute(RegisterCommand command) {
-        String email = normalizeEmail(command.email());
+        String email = EmailNormalizer.normalize(command.email());
         if (userRepository.existsByEmail(email)) {
             throw emailAlreadyExists();
         }
@@ -49,7 +48,4 @@ public final class RegisterUseCase {
         );
     }
 
-    private String normalizeEmail(String email) {
-        return email.trim().toLowerCase(Locale.ROOT);
-    }
 }

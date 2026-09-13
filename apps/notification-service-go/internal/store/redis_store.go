@@ -112,12 +112,22 @@ func (s *RedisStore) MarkAllRead(ctx context.Context, userID string) error {
 	if err != nil {
 		return err
 	}
+	pipe := s.client.TxPipeline()
+	readAt := time.Now().UTC().Format(time.RFC3339Nano)
 	for _, id := range ids {
-		if err := s.MarkRead(ctx, userID, id); err != nil && !errors.Is(err, ErrNotFound) {
-			return err
-		}
+		// Check and update atomically: preserve the original read time and never
+		// recreate an expired hash still referenced by the user's index.
+		pipe.Eval(ctx, `
+if redis.call('EXISTS', KEYS[1]) == 1 then
+  local readAt = redis.call('HGET', KEYS[1], 'readAt')
+  if not readAt or readAt == '' then
+    redis.call('HSET', KEYS[1], 'readAt', ARGV[1])
+  end
+end
+return 0`, []string{notificationKey(userID, id)}, readAt)
 	}
-	return nil
+	_, err = pipe.Exec(ctx)
+	return err
 }
 
 func DeterministicID(eventID, userID string) string {

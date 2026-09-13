@@ -10,15 +10,15 @@ import {
 } from "../api";
 
 export function useIssue(issueId?: string) {
-  return useQuery({ queryKey: ["issues", issueId], queryFn: () => getIssue(issueId as string), enabled: Boolean(issueId) });
+  return useQuery({ queryKey: ["issue", issueId], queryFn: () => getIssue(issueId as string), enabled: Boolean(issueId) });
 }
 
 export function useComments(issueId?: string) {
-  return useQuery({ queryKey: ["issues", issueId, "comments"], queryFn: () => listComments(issueId as string), enabled: Boolean(issueId) });
+  return useQuery({ queryKey: ["issue", issueId, "comments"], queryFn: () => listComments(issueId as string), enabled: Boolean(issueId) });
 }
 
 export function useHistory(issueId?: string) {
-  return useQuery({ queryKey: ["issues", issueId, "history"], queryFn: () => listHistory(issueId as string), enabled: Boolean(issueId) });
+  return useQuery({ queryKey: ["issue", issueId, "history"], queryFn: () => listHistory(issueId as string), enabled: Boolean(issueId) });
 }
 
 export function useAddComment(issueId: string, projectId?: string) {
@@ -26,13 +26,13 @@ export function useAddComment(issueId: string, projectId?: string) {
 
   async function refreshCommentDependencies() {
     const queryKeys = [
-      ["issues", issueId],
-      ["issues", issueId, "comments"],
-      ["issues", issueId, "history"],
+      ["issue", issueId],
+      ["issue", issueId, "comments"],
+      ["issue", issueId, "history"],
     ];
 
     if (projectId) {
-      queryKeys.push(["issues", projectId]);
+      queryKeys.push(["issues", "list", projectId]);
     }
 
     await Promise.all(

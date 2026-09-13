@@ -70,6 +70,8 @@ tests/
 !apps/web-client/src/**/*.test.tsx
 !apps/web-client/src/test/
 !apps/web-client/src/test/**/*.ts
+!apps/iam-service-java/src/test/
+!apps/iam-service-java/src/test/**/*.java
 
 # Keep Markdown focused on canonical docs and agent guidance.
 *.md
@@ -78,3 +80,5 @@ tests/
 !docs/**
 !AGENTS.md
 !CLAUDE.md
+!/CODEBASE_REVIEW_AND_REFACTOR_PLAN.md
+!/CODEX_IMPLEMENTATION_REPORT.md

@@ -9,6 +9,18 @@ namespace ProjectService.Tests;
 
 public sealed class ProjectUseCaseTests
 {
+    [Fact]
+    public async Task MembershipTimestampsMatchPostgresMicrosecondPrecision()
+    {
+        var store = NewStore();
+        var result = await new AddWorkspaceMemberUseCase(Members(store)).ExecuteAsync(
+            store.WorkspaceId, new AddWorkspaceMemberCommand(Guid.NewGuid(), WorkspaceRoles.Member),
+            store.ActorId, CancellationToken.None);
+        Assert.Equal(0, result.Member.JoinedAt.Ticks % 10);
+        Assert.Equal(0, result.Member.UpdatedAt.Ticks % 10);
+        Assert.Equal(TimeSpan.Zero, result.Member.JoinedAt.Offset);
+    }
+
     [Theory]
     [InlineData(WorkspaceRoles.Owner)]
     [InlineData(WorkspaceRoles.Admin)]

@@ -52,13 +52,13 @@ describe("Comment mutation cache handling", () => {
     });
 
     expect(issueApi.addComment).toHaveBeenCalledTimes(1);
-    expect(invalidate).toHaveBeenCalledWith({ queryKey: ["issues", "issue-1"] });
-    expect(invalidate).toHaveBeenCalledWith({ queryKey: ["issues", "project-1"] });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ["issue", "issue-1"] });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ["issues", "list", "project-1"] });
     expect(invalidate).toHaveBeenCalledWith({
-      queryKey: ["issues", "issue-1", "comments"],
+      queryKey: ["issue", "issue-1", "comments"],
     });
     expect(invalidate).toHaveBeenCalledWith({
-      queryKey: ["issues", "issue-1", "history"],
+      queryKey: ["issue", "issue-1", "history"],
     });
   });
 
@@ -77,13 +77,13 @@ describe("Comment mutation cache handling", () => {
     });
 
     expect(issueApi.addComment).toHaveBeenCalledTimes(1);
-    expect(invalidate).toHaveBeenCalledWith({ queryKey: ["issues", "issue-1"] });
-    expect(invalidate).toHaveBeenCalledWith({ queryKey: ["issues", "project-1"] });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ["issue", "issue-1"] });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ["issues", "list", "project-1"] });
     expect(invalidate).toHaveBeenCalledWith({
-      queryKey: ["issues", "issue-1", "comments"],
+      queryKey: ["issue", "issue-1", "comments"],
     });
     expect(invalidate).toHaveBeenCalledWith({
-      queryKey: ["issues", "issue-1", "history"],
+      queryKey: ["issue", "issue-1", "history"],
     });
   });
 });

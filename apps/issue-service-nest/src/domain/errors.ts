@@ -6,6 +6,7 @@ export class DomainError extends Error {
     readonly details: Record<string, unknown> = {},
   ) {
     super(message);
+    this.name = 'DomainError';
   }
 }
 

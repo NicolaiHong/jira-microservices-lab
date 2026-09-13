@@ -11,6 +11,7 @@ public static class AuthContext
 
     public static AuthenticatedUserContext FromHttpContext(HttpContext httpContext)
     {
+        // Trust Gateway identity only after the internal-service authentication middleware.
         var header = httpContext.Request.Headers[AuthenticatedUserIdHeader].FirstOrDefault();
         if (string.IsNullOrWhiteSpace(header) || !Guid.TryParse(header, out var userId))
         {

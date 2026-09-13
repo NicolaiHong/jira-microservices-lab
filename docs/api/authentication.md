@@ -13,3 +13,5 @@ Public authentication and session routes.
 | `GET /api/auth/me` | Bearer | Get JWT identity | — | `200 { user }` | unauthorized/expired/invalid token | AUTH-002 |
 
 Registration validates valid email and password length at least eight. Gateway intentionally strips raw refresh token from public login/refresh response.
+
+Gateway rate limits registration (5 requests per 10 minutes per IP), login and refresh (10 requests per minute per IP). Login also limits failed attempts per normalized email. Rate limits use Fastify's resolved client IP, not an untrusted `x-forwarded-for` value. A rate-limited refresh returns `429 RATE_LIMITED` without clearing its refresh cookie.

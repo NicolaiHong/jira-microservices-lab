@@ -48,16 +48,16 @@ export function IssueDetailModal({
       updateIssue(issueId, payload, issue?.version ?? 0),
     retry: false,
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["issues", issueId] });
+      await queryClient.invalidateQueries({ queryKey: ["issue", issueId] });
       if (issue?.projectId) {
-        await queryClient.invalidateQueries({ queryKey: ["issues", issue.projectId] });
+        await queryClient.invalidateQueries({ queryKey: ["issues", "list", issue.projectId] });
       }
     },
     onError: async (error) => {
       if (isConcurrentIssueModification(error)) {
-        await queryClient.invalidateQueries({ queryKey: ["issues", issueId] });
+        await queryClient.invalidateQueries({ queryKey: ["issue", issueId] });
         if (issue?.projectId) {
-          await queryClient.invalidateQueries({ queryKey: ["issues", issue.projectId] });
+          await queryClient.invalidateQueries({ queryKey: ["issues", "list", issue.projectId] });
         }
       }
       await refreshProjectIfArchived(error);
@@ -68,16 +68,16 @@ export function IssueDetailModal({
       assignIssue(issueId, userId, issue?.version ?? 0),
     retry: false,
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["issues", issueId] });
+      await queryClient.invalidateQueries({ queryKey: ["issue", issueId] });
       if (issue?.projectId) {
-        await queryClient.invalidateQueries({ queryKey: ["issues", issue.projectId] });
+        await queryClient.invalidateQueries({ queryKey: ["issues", "list", issue.projectId] });
       }
     },
     onError: async (error) => {
       if (isConcurrentIssueModification(error)) {
-        await queryClient.invalidateQueries({ queryKey: ["issues", issueId] });
+        await queryClient.invalidateQueries({ queryKey: ["issue", issueId] });
         if (issue?.projectId) {
-          await queryClient.invalidateQueries({ queryKey: ["issues", issue.projectId] });
+          await queryClient.invalidateQueries({ queryKey: ["issues", "list", issue.projectId] });
         }
       }
       await refreshProjectIfArchived(error);
@@ -174,7 +174,7 @@ export function IssueDetailModal({
             <CardDescription>{issue.key} · version {issue.version}</CardDescription>
           </CardHeader>
           <CardContent>
-            <form className="space-y-3" onSubmit={submitEdit}>
+            <form key={`${issue.id}:${issue.version}`} className="space-y-3" onSubmit={submitEdit}>
               <Input disabled={!isProjectWritable} defaultValue={issue.summary} maxLength={200} name="summary" required />
               <textarea className="min-h-28 w-full rounded-lg border bg-background p-3 text-sm" defaultValue={issue.description ?? ""} disabled={!isProjectWritable} name="description" placeholder="Description" />
               <div className="grid gap-3 sm:grid-cols-2">
@@ -207,7 +207,7 @@ export function IssueDetailModal({
       <div className="space-y-5">
         <Card>
           <CardHeader><CardTitle>Assignment</CardTitle></CardHeader>
-          <CardContent><form className="space-y-3" onSubmit={submitAssignment}><Input defaultValue={issue.assigneeUserId ?? ""} disabled={!isProjectWritable} name="assigneeUserId" placeholder="Member UUID; empty to unassign" /><Button className="w-full" disabled={!isProjectWritable || assign.isPending} type="submit">Update assignee</Button></form></CardContent>
+          <CardContent><form key={`${issue.id}:${issue.version}`} className="space-y-3" onSubmit={submitAssignment}><Input defaultValue={issue.assigneeUserId ?? ""} disabled={!isProjectWritable} name="assigneeUserId" placeholder="Member UUID; empty to unassign" /><Button className="w-full" disabled={!isProjectWritable || assign.isPending} type="submit">Update assignee</Button></form></CardContent>
         </Card>
         <Card>
           <CardHeader><CardTitle>History</CardTitle></CardHeader>

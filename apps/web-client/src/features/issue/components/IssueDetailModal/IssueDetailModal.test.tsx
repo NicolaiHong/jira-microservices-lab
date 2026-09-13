@@ -60,6 +60,20 @@ function renderDetails(isProjectWritable = true) {
 }
 
 describe("Issue details mutations", () => {
+  it("reloads edit and assignment values on a new version while preserving a comment draft", () => {
+    const client = new QueryClient();
+    const view = (current: typeof issue) => <QueryClientProvider client={client}><IssueDetailModal isProjectWritable issue={current} issueId={current.id} /></QueryClientProvider>;
+    const { rerender } = render(view(issue));
+    fireEvent.change(screen.getByDisplayValue("Original summary"), { target: { value: "Stale draft" } });
+    fireEvent.change(screen.getByPlaceholderText("Member UUID; empty to unassign"), { target: { value: "stale-member" } });
+    fireEvent.change(screen.getByPlaceholderText("Write a comment"), { target: { value: "Keep comment draft" } });
+    rerender(view({ ...issue, version: 8, summary: "Latest summary", description: "Latest description" }));
+    expect(screen.getByDisplayValue("Latest summary")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("Latest description")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Member UUID; empty to unassign")).toHaveValue("");
+    expect(screen.getByPlaceholderText("Write a comment")).toHaveValue("Keep comment draft");
+  });
+
   afterEach(cleanup);
 
   beforeEach(() => {

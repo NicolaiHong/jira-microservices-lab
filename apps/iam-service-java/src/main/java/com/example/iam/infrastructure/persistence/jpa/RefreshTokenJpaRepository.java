@@ -15,4 +15,8 @@ public interface RefreshTokenJpaRepository
     @Query("update RefreshTokenJpaEntity token set token.revoked = true " +
            "where token.id = :id and token.revoked = false")
     int revokeActiveById(@Param("id") UUID id);
+
+    @Modifying
+    @Query("delete from RefreshTokenJpaEntity token where token.expiresAt < :now or token.revoked = true")
+    int deleteUnusableTokens(@Param("now") java.time.Instant now);
 }

@@ -71,6 +71,13 @@ function renderBoard(
 }
 
 describe("Issue board transitions", () => {
+  it("shows an honest assignee fallback instead of invented initials", () => {
+    renderBoard([{ ...makeIssue("assigned", "TODO", 1), assigneeUserId: "member-2" }, makeIssue("unassigned", "TODO", 2)]);
+    expect(screen.getByRole("img", { name: "Assignee member-2" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Unassigned" })).toBeInTheDocument();
+    expect(screen.queryByText("AM")).not.toBeInTheDocument();
+  });
+
   afterEach(cleanup);
 
   beforeEach(() => {

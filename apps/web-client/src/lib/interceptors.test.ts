@@ -34,6 +34,40 @@ function makeAxiosInstance() {
 }
 
 describe("authenticated 401 refresh/replay", () => {
+  it("deduplicates concurrent 401 refreshes and replays both requests", async () => {
+    let resolveRefresh!: (value: never) => void;
+    const refresh = vi.spyOn(axios, "post").mockImplementation(() => new Promise((resolve) => { resolveRefresh = resolve; }));
+    const fake = makeAxiosInstance();
+    setupInterceptors(fake.instance);
+    const reject = fake.responseErrorHandler()!;
+    const first = reject({ response: { status: 401 }, config: { headers: {} } });
+    const second = reject({ response: { status: 401 }, config: { headers: {} } });
+    expect(refresh).toHaveBeenCalledTimes(1);
+    resolveRefresh({ data: { accessToken: "fresh", user } } as never);
+    await Promise.all([first, second]);
+    expect(fake.instance).toHaveBeenCalledTimes(2);
+  });
+
+  it("clears the session after a failed refresh without replaying the request", async () => {
+    vi.spyOn(axios, "post").mockRejectedValue({ response: { status: 401 } });
+    const fake = makeAxiosInstance();
+    setupInterceptors(fake.instance);
+    const error = { response: { status: 401 }, config: { headers: {} } };
+    await expect(fake.responseErrorHandler()!(error)).rejects.toBe(error);
+    expect(useAuthStore.getState().isAuthenticated).toBe(false);
+    expect(fake.instance).not.toHaveBeenCalled();
+  });
+
+  it("does not refresh again when the replay also returns 401", async () => {
+    const refresh = vi.spyOn(axios, "post");
+    const fake = makeAxiosInstance();
+    setupInterceptors(fake.instance);
+    const error = { response: { status: 401 }, config: { headers: {}, _retry: true } };
+    await expect(fake.responseErrorHandler()!(error)).rejects.toBe(error);
+    expect(refresh).not.toHaveBeenCalled();
+    expect(fake.instance).not.toHaveBeenCalled();
+  });
+
   beforeEach(() => {
     vi.restoreAllMocks();
     useAuthStore.setState({

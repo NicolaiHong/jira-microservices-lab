@@ -2,7 +2,7 @@
 
 import type { FormEvent } from "react";
 import Link from "next/link";
-import { PlusIcon } from "lucide-react";
+import { PlusIcon, UserIcon } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -153,8 +153,16 @@ export function Backlog({
                 <span className="hidden text-xs text-muted-foreground sm:block">
                   {issue.priority}
                 </span>
-                <span className="flex size-5 items-center justify-center rounded-full bg-[#6554c0] text-[8px] font-semibold text-white">
-                  AM
+                <span
+                  aria-label={
+                    issue.assigneeUserId
+                      ? `Assignee ${issue.assigneeUserId}`
+                      : "Unassigned"
+                  }
+                  className="flex size-5 items-center justify-center rounded-full bg-[#6554c0] text-[8px] font-semibold text-white"
+                  role="img"
+                >
+                  <UserIcon aria-hidden="true" className="size-3" />
                 </span>
               </div>
             ))

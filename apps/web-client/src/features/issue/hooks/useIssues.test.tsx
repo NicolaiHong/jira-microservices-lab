@@ -63,10 +63,10 @@ describe("Issue transition cache handling", () => {
 
     expect(issueApi.transitionIssue).toHaveBeenCalledTimes(1);
     expect(invalidate).toHaveBeenCalledWith({
-      queryKey: ["issues", "project-1"],
+      queryKey: ["issues", "list", "project-1"],
     });
     expect(invalidate).toHaveBeenCalledWith({
-      queryKey: ["issues", "issue-1"],
+      queryKey: ["issue", "issue-1"],
     });
   });
 
@@ -85,8 +85,8 @@ describe("Issue transition cache handling", () => {
         version: 2,
         summary: "Current data",
       };
-      queryClient.setQueryData(["issues", "project-1"], [oldIssue]);
-      queryClient.setQueryData(["issues", "issue-1"], oldIssue);
+      queryClient.setQueryData(["issues", "list", "project-1"], [oldIssue]);
+      queryClient.setQueryData(["issue", "issue-1"], oldIssue);
       const invalidate = vi.spyOn(queryClient, "invalidateQueries");
       const failure = { code };
       issueApi.getIssueErrorCode.mockReturnValue(code);
@@ -107,12 +107,12 @@ describe("Issue transition cache handling", () => {
 
       expect(issueApi.transitionIssue).toHaveBeenCalledTimes(1);
       expect(invalidate).toHaveBeenCalledWith({
-        queryKey: ["issues", "project-1"],
+        queryKey: ["issues", "list", "project-1"],
       });
       expect(invalidate).toHaveBeenCalledWith({
-        queryKey: ["issues", "issue-1"],
+        queryKey: ["issue", "issue-1"],
       });
-      expect(queryClient.getQueryData(["issues", "issue-1"])).toEqual(oldIssue);
+      expect(queryClient.getQueryData(["issue", "issue-1"])).toEqual(oldIssue);
 
       if (code === "PROJECT_ARCHIVED") {
         expect(invalidate).toHaveBeenCalledWith({

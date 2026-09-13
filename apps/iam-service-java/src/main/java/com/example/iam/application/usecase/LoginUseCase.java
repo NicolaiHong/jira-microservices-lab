@@ -11,7 +11,6 @@ import com.example.iam.domain.port.PasswordHasher;
 import com.example.iam.domain.port.RefreshTokenRepository;
 import com.example.iam.domain.port.TokenProvider;
 import com.example.iam.domain.port.UserRepository;
-import java.util.Locale;
 
 public final class LoginUseCase {
     private final UserRepository userRepository;
@@ -32,7 +31,7 @@ public final class LoginUseCase {
     }
 
     public LoginResult execute(LoginCommand command) {
-        String email = normalizeEmail(command.email());
+        String email = EmailNormalizer.normalize(command.email());
         User user = userRepository
             .findByEmail(email)
             .orElseThrow(LoginUseCase::invalidCredentials);
@@ -73,7 +72,4 @@ public final class LoginUseCase {
         );
     }
 
-    private String normalizeEmail(String email) {
-        return email.trim().toLowerCase(Locale.ROOT);
-    }
 }

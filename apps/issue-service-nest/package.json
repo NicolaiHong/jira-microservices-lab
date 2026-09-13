@@ -5,7 +5,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "test": "npm run test:unit && npm run test:integration",
-    "test:unit": "node --test --require ts-node/register src/domain/issue.spec.ts src/application/issue-application.service.spec.ts",
+    "test:unit": "node --test --require ts-node/register src/domain/issue.spec.ts src/application/issue-application.service.spec.ts src/infrastructure/outbox.publisher.spec.ts src/presentation/domain-exception.filter.spec.ts",
     "test:integration": "node -e \"if (!process.env.ISSUE_SERVICE_TEST_DATABASE_URL) { console.error('ISSUE_SERVICE_TEST_DATABASE_URL is required'); process.exit(1); }\" && node --test --require ts-node/register src/infrastructure/postgres-issue.repository.integration.spec.ts",
     "start": "node dist/main.js",
     "start:dev": "ts-node src/main.ts"
@@ -13,7 +13,7 @@
   "overrides": {
     "multer": "^2.2.0",
     "find-my-way": "9.7.0",
-    "fast-uri": "3.1.5"
+    "fast-uri": "3.1.7"
   },
   "dependencies": {
     "@nestjs/common": "^11.1.27",

@@ -35,3 +35,4 @@ auth:
     audience: ${JWT_AUDIENCE:jira-like-api}
   refresh-token:
     ttl-days: ${REFRESH_TOKEN_TTL_DAYS:30}
+    cleanup-delay-ms: ${REFRESH_TOKEN_CLEANUP_DELAY_MS:3600000}

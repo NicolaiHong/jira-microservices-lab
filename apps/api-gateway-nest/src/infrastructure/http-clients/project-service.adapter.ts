@@ -1,30 +1,29 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { AppException } from '../../common/errors/app.exception';
+import { Injectable } from '@nestjs/common';
+import { InternalServiceHttpClient } from './internal-service-http.client';
 
 interface ProjectServiceRequestContext {
   userId: string;
   correlationId: string;
 }
 
-interface ProjectServiceResponse {
-  code?: unknown;
-  message?: unknown;
-  details?: unknown;
-}
-
 @Injectable()
 export class ProjectServiceAdapter {
-  private readonly logger = new Logger(ProjectServiceAdapter.name);
-  private readonly projectServiceUrl = (
-    process.env.PROJECT_SERVICE_URL ?? 'http://localhost:8082'
-  ).replace(/\/+$/, '');
-  private readonly internalServiceSecret = process.env.INTERNAL_SERVICE_SECRET ?? '';
+  private readonly client = new InternalServiceHttpClient({
+    service: 'project-service',
+    baseUrl: process.env.PROJECT_SERVICE_URL ?? 'http://localhost:8082',
+    requestErrorCode: 'INTERNAL_ERROR',
+    requestErrorMessage: 'Project service request failed',
+    unavailableCode: 'PROJECT_SERVICE_UNAVAILABLE',
+    unavailableMessage: 'Project service is unavailable',
+    objectResponseOnly: true,
+    nonemptyErrorStrings: true,
+  });
 
   createWorkspace(
     body: unknown,
     context: ProjectServiceRequestContext,
   ): Promise<unknown> {
-    return this.forwardToProjectService(
+    return this.client.forward(
       'POST',
       '/internal/workspaces',
       body,
@@ -33,7 +32,7 @@ export class ProjectServiceAdapter {
   }
 
   listWorkspaces(context: ProjectServiceRequestContext): Promise<unknown> {
-    return this.forwardToProjectService(
+    return this.client.forward(
       'GET',
       '/internal/workspaces',
       undefined,
@@ -46,7 +45,7 @@ export class ProjectServiceAdapter {
     body: unknown,
     context: ProjectServiceRequestContext,
   ): Promise<unknown> {
-    return this.forwardToProjectService(
+    return this.client.forward(
       'POST',
       `/internal/workspaces/${encodeURIComponent(workspaceId)}/projects`,
       body,
@@ -59,7 +58,7 @@ export class ProjectServiceAdapter {
     body: unknown,
     context: ProjectServiceRequestContext,
   ): Promise<unknown> {
-    return this.forwardToProjectService(
+    return this.client.forward(
       'POST',
       `/internal/workspaces/${encodeURIComponent(workspaceId)}/members`,
       body,
@@ -73,7 +72,7 @@ export class ProjectServiceAdapter {
     body: unknown,
     context: ProjectServiceRequestContext,
   ): Promise<unknown> {
-    return this.forwardToProjectService(
+    return this.client.forward(
       'PATCH',
       `/internal/workspaces/${encodeURIComponent(workspaceId)}/members/${encodeURIComponent(userId)}`,
       body,
@@ -86,7 +85,7 @@ export class ProjectServiceAdapter {
     userId: string,
     context: ProjectServiceRequestContext,
   ): Promise<void> {
-    await this.forwardToProjectService(
+    await this.client.forward(
       'DELETE',
       `/internal/workspaces/${encodeURIComponent(workspaceId)}/members/${encodeURIComponent(userId)}`,
       undefined,
@@ -98,7 +97,7 @@ export class ProjectServiceAdapter {
     workspaceId: string,
     context: ProjectServiceRequestContext,
   ): Promise<unknown> {
-    return this.forwardToProjectService(
+    return this.client.forward(
       'GET',
       `/internal/workspaces/${encodeURIComponent(workspaceId)}/projects`,
       undefined,
@@ -110,7 +109,7 @@ export class ProjectServiceAdapter {
     projectId: string,
     context: ProjectServiceRequestContext,
   ): Promise<unknown> {
-    return this.forwardToProjectService(
+    return this.client.forward(
       'GET',
       `/internal/projects/${encodeURIComponent(projectId)}`,
       undefined,
@@ -123,7 +122,7 @@ export class ProjectServiceAdapter {
     body: unknown,
     context: ProjectServiceRequestContext,
   ): Promise<unknown> {
-    return this.forwardToProjectService(
+    return this.client.forward(
       'PATCH',
       `/internal/projects/${encodeURIComponent(projectId)}`,
       body,
@@ -135,7 +134,7 @@ export class ProjectServiceAdapter {
     projectId: string,
     context: ProjectServiceRequestContext,
   ): Promise<void> {
-    await this.forwardToProjectService(
+    await this.client.forward(
       'DELETE',
       `/internal/projects/${encodeURIComponent(projectId)}`,
       undefined,
@@ -143,97 +142,4 @@ export class ProjectServiceAdapter {
     );
   }
 
-  private async forwardToProjectService(
-    method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
-    path: string,
-    body: unknown,
-    context: ProjectServiceRequestContext,
-  ): Promise<unknown> {
-    const hasRequestBody = method === 'POST' || method === 'PATCH';
-    const controller = new AbortController();
-    const timeoutMs = Number(process.env.HTTP_CLIENT_TIMEOUT_MS ?? 3000);
-    const timeout = setTimeout(() => controller.abort(), timeoutMs);
-    const startedAt = Date.now();
-
-    try {
-      const response = await fetch(`${this.projectServiceUrl}${path}`, {
-        method,
-        signal: controller.signal,
-        headers: {
-          accept: 'application/json',
-          ...(hasRequestBody ? { 'content-type': 'application/json' } : {}),
-          'x-authenticated-user-id': context.userId,
-          'x-correlation-id': context.correlationId,
-          'x-internal-service-secret': this.internalServiceSecret,
-        },
-        body: hasRequestBody ? JSON.stringify(body ?? {}) : undefined,
-      });
-      const responseBody = await this.parseJsonResponse(response);
-
-      this.logger.log(
-        JSON.stringify({
-          service: 'api-gateway',
-          correlationId: context.correlationId,
-          downstreamService: 'project-service',
-          downstreamPath: path,
-          status: response.status,
-          durationMs: Date.now() - startedAt,
-        }),
-      );
-
-      if (!response.ok) {
-        throw new AppException(
-          response.status,
-          this.stringOrDefault(responseBody.code, 'INTERNAL_ERROR'),
-          this.stringOrDefault(
-            responseBody.message,
-            'Project service request failed',
-          ),
-          this.objectOrEmpty(responseBody.details),
-        );
-      }
-
-      return responseBody;
-    } catch (error) {
-      if (error instanceof AppException) {
-        throw error;
-      }
-
-      throw new AppException(
-        503,
-        'PROJECT_SERVICE_UNAVAILABLE',
-        'Project service is unavailable',
-      );
-    } finally {
-      clearTimeout(timeout);
-    }
-  }
-
-  private async parseJsonResponse(
-    response: Response,
-  ): Promise<ProjectServiceResponse> {
-    const text = await response.text();
-    if (!text) {
-      return {};
-    }
-
-    try {
-      const parsed: unknown = JSON.parse(text);
-      return this.isObject(parsed) ? parsed : {};
-    } catch {
-      return {};
-    }
-  }
-
-  private stringOrDefault(value: unknown, fallback: string): string {
-    return typeof value === 'string' && value.length > 0 ? value : fallback;
-  }
-
-  private objectOrEmpty(value: unknown): Record<string, unknown> {
-    return this.isObject(value) ? value : {};
-  }
-
-  private isObject(value: unknown): value is Record<string, unknown> {
-    return typeof value === 'object' && value !== null && !Array.isArray(value);
-  }
 }

@@ -4,14 +4,14 @@
   "private": true,
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
-    "test": "node --test --require ts-node/register src/infrastructure/http-clients/project-service.adapter.spec.ts src/infrastructure/http-clients/issue-service.adapter.spec.ts src/presentation/issues/issues.controller.spec.ts",
+    "test": "node --test --require ts-node/register src/infrastructure/http-clients/project-service.adapter.spec.ts src/infrastructure/http-clients/issue-service.adapter.spec.ts src/presentation/issues/issues.controller.spec.ts src/presentation/auth/auth.controller.spec.ts src/infrastructure/http-clients/internal-service-http.client.spec.ts src/services/services.spec.ts",
     "start": "node dist/main.js",
     "start:dev": "ts-node src/main.ts"
   },
   "overrides": {
     "multer": "^2.2.0",
     "find-my-way": "9.7.0",
-    "fast-uri": "3.1.5"
+    "fast-uri": "3.1.7"
   },
   "dependencies": {
     "@nestjs/common": "^11.1.27",

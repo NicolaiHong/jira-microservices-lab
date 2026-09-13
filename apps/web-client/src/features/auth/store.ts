@@ -3,6 +3,9 @@ import { create } from "zustand";
 import type { AuthResponse, User } from "./types";
 
 const STORAGE_KEY = "jira-like-web-client.session";
+// Access tokens in localStorage are readable by injected JavaScript. This is
+// the documented MVP session policy; a production move to memory-only storage
+// also needs cookie-based session bootstrap on reload. Refresh tokens stay HttpOnly.
 
 interface PersistedSession {
   accessToken: string;

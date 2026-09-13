@@ -8,6 +8,15 @@ $password = "Learning123!"
 $ownerEmail = "owner-$suffix@example.com"
 $memberEmail = "member-$suffix@example.com"
 $projectKey = "S$($suffix.ToString().Substring($suffix.ToString().Length - 5))"
+$curlPath = (Get-Command curl -CommandType Application).Source
+$cookieJars = @{}
+$temporaryFiles = [System.Collections.Generic.List[string]]::new()
+
+function New-SmokeTempFile {
+    $path = [System.IO.Path]::GetTempFileName()
+    $temporaryFiles.Add($path)
+    return $path
+}
 
 function Invoke-Gateway {
     param(
@@ -30,11 +39,28 @@ function Invoke-Gateway {
         $parameters.Body = $Body | ConvertTo-Json -Depth 8
     }
     if ($null -ne $WebSession) {
-        $parameters.WebSession = $WebSession
+        # curl, like browsers, supports Secure cookies on localhost. .NET's
+        # CookieContainer drops them on local HTTP, so use an actual cookie jar.
+        $key = $WebSession.GetHashCode()
+        if (-not $cookieJars.ContainsKey($key)) { $cookieJars[$key] = New-SmokeTempFile }
+        $curlArgs = @('--silent', '--show-error', '--fail-with-body', '--max-time', '15',
+            '--request', $Method, '--cookie', $cookieJars[$key], '--cookie-jar', $cookieJars[$key],
+            '--header', "x-correlation-id: smoke-$suffix")
+        if ($null -ne $Body) {
+            $bodyFile = New-SmokeTempFile
+            [System.IO.File]::WriteAllText($bodyFile, ($Body | ConvertTo-Json -Depth 8))
+            $curlArgs += @('--header', 'content-type: application/json', '--data-binary', "@$bodyFile")
+        }
+        if ($Token) { $curlArgs += @('--header', "authorization: Bearer $Token") }
+        $output = & $curlPath @curlArgs "$GatewayUrl$Path"
+        if ($LASTEXITCODE -ne 0) { throw "Cookie request $Method $Path failed: $output" }
+        if ($output) { return ($output | ConvertFrom-Json) }
+        return
     }
     Invoke-RestMethod @parameters
 }
 
+try {
 Write-Host "1/10 Register owner and member"
 $owner = Invoke-Gateway POST "/api/auth/register" @{ email = $ownerEmail; password = $password } ""
 $member = Invoke-Gateway POST "/api/auth/register" @{ email = $memberEmail; password = $password } ""
@@ -61,7 +87,7 @@ $issueResult = Invoke-Gateway POST "/api/projects/$projectId/issues" @{ summary 
 $issueId = $issueResult.issue.id
 
 Write-Host "7/10 Transition and comment"
-Invoke-Gateway POST "/api/issues/$issueId/transitions" @{ status = "IN_PROGRESS" } $ownerSession.accessToken | Out-Null
+Invoke-Gateway POST "/api/issues/$issueId/transitions" @{ status = "IN_PROGRESS"; expectedVersion = $issueResult.issue.version } $ownerSession.accessToken | Out-Null
 Invoke-Gateway POST "/api/issues/$issueId/comments" @{ body = "Member received the task." } $memberSession.accessToken | Out-Null
 
 Write-Host "8/10 Verify history"
@@ -82,5 +108,17 @@ Invoke-Gateway PATCH "/api/notifications/$($notifications.items[0].id)/read" $nu
 $rotated = Invoke-Gateway POST "/api/auth/refresh" $null "" $ownerWebSession
 if (-not $rotated.accessToken) { throw "Refresh token rotation failed" }
 
+$ownerJar = $cookieJars[$ownerWebSession.GetHashCode()]
+$revokedJar = New-SmokeTempFile
+Copy-Item -LiteralPath $ownerJar -Destination $revokedJar
+Invoke-Gateway POST "/api/auth/logout" $null "" $ownerWebSession | Out-Null
+$replayBody = New-SmokeTempFile
+$replayStatus = & $curlPath --silent --show-error --max-time 15 --request POST --cookie $revokedJar --output $replayBody --write-out '%{http_code}' "$GatewayUrl/api/auth/refresh"
+if ($LASTEXITCODE -ne 0 -or $replayStatus -ne '401') { throw "Logged-out refresh token was not revoked" }
+if ((Get-Content -LiteralPath $replayBody -Raw | ConvertFrom-Json).code -ne "INVALID_REFRESH_TOKEN") { throw "Unexpected logout replay response" }
+
 Write-Host "Full synchronous + asynchronous smoke flow passed" -ForegroundColor Green
 Write-Host "workspace=$workspaceId project=$projectId issue=$issueId correlation=smoke-$suffix"
+} finally {
+    foreach ($path in $temporaryFiles) { Remove-Item -LiteralPath $path -ErrorAction SilentlyContinue }
+}
