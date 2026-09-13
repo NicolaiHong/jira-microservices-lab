@@ -36,7 +36,7 @@ public sealed class AddWorkspaceMemberUseCase(
                 "User is already a workspace member");
         }
 
-        var now = DateTimeOffset.UtcNow;
+        var now = PostgresTimestamp.UtcNow();
         var member = new WorkspaceMember
         {
             Id = Guid.NewGuid(),

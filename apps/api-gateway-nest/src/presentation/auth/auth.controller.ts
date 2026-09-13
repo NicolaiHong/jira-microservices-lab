@@ -50,10 +50,13 @@ export class AuthController {
       const result = await this.authService.refresh(
         { refreshToken },
         getCorrelationId(request),
+        this.clientIp(request),
       );
       return this.withRefreshCookie(result, reply);
     } catch (error) {
-      this.clearRefreshCookie(reply);
+      if (!(error instanceof AppException && error.statusCode === 429)) {
+        this.clearRefreshCookie(reply);
+      }
       throw error;
     }
   }
@@ -89,11 +92,8 @@ export class AuthController {
   }
 
   private clientIp(request: FastifyRequest): string {
-    const forwardedFor = request.headers['x-forwarded-for'];
-    if (typeof forwardedFor === 'string' && forwardedFor.trim().length > 0) {
-      return forwardedFor.split(',')[0].trim();
-    }
-
+    // Fastify resolves trusted proxy IPs when configured; raw browser headers
+    // must not let callers select a fresh rate-limit bucket on each request.
     return request.ip ?? 'unknown';
   }
 

@@ -16,7 +16,7 @@ import type { CreateEpicPayload, CreateIssuePayload, CreateSprintPayload, IssueS
 
 export function useIssues(projectId?: string) {
   return useQuery({
-    queryKey: ["issues", projectId],
+    queryKey: ["issues", "list", projectId],
     queryFn: () => listIssues(projectId as string),
     enabled: Boolean(projectId),
   });
@@ -26,7 +26,7 @@ export function useCreateIssue(projectId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (payload: CreateIssuePayload) => createIssue(projectId, payload),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["issues", projectId] }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["issues", "list", projectId] }),
   });
 }
 
@@ -52,7 +52,7 @@ export function useCompleteSprint(projectId: string) {
   const queryClient = useQueryClient();
   return useMutation({ mutationFn: (sprintId: string) => completeSprint(sprintId), onSuccess: () => {
     queryClient.invalidateQueries({ queryKey: ["sprints", projectId] });
-    queryClient.invalidateQueries({ queryKey: ["issues", projectId] });
+    queryClient.invalidateQueries({ queryKey: ["issues", "list", projectId] });
   } });
 }
 
@@ -60,8 +60,8 @@ export function useTransitionIssue(projectId: string) {
   const queryClient = useQueryClient();
 
   function invalidateIssueQueries(issueId: string) {
-    queryClient.invalidateQueries({ queryKey: ["issues", projectId] });
-    queryClient.invalidateQueries({ queryKey: ["issues", issueId] });
+    queryClient.invalidateQueries({ queryKey: ["issues", "list", projectId] });
+    queryClient.invalidateQueries({ queryKey: ["issue", issueId] });
   }
 
   return useMutation({

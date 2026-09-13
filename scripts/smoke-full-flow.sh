@@ -36,7 +36,8 @@ project="$(call_api POST "/api/workspaces/$workspace_id/projects" "{\"name\":\"S
 project_id="$(jq -r .project.id <<<"$project")"
 issue="$(call_api POST "/api/projects/$project_id/issues" "{\"summary\":\"Trace the full event flow\",\"type\":\"TASK\",\"priority\":\"HIGH\",\"assigneeUserId\":\"$member_id\"}" "$owner_token")"
 issue_id="$(jq -r .issue.id <<<"$issue")"
-call_api POST "/api/issues/$issue_id/transitions" '{"status":"IN_PROGRESS"}' "$owner_token" >/dev/null
+issue_version="$(jq -r .issue.version <<<"$issue")"
+call_api POST "/api/issues/$issue_id/transitions" "{\"status\":\"IN_PROGRESS\",\"expectedVersion\":$issue_version}" "$owner_token" >/dev/null
 call_api POST "/api/issues/$issue_id/comments" '{"body":"Member received the task."}' "$member_token" >/dev/null
 
 for _ in {1..10}; do
@@ -50,5 +51,7 @@ call_api PATCH "/api/notifications/$notification_id/read" '' "$member_token" >/d
 
 rotated_session="$(call_api POST /api/auth/refresh '' '' "$owner_cookie")"
 [[ -n "$(jq -r '.accessToken // empty' <<<"$rotated_session")" ]] || { echo "Refresh token rotation failed" >&2; exit 1; }
+
+call_api POST /api/auth/logout '' '' "$owner_cookie" >/dev/null
 
 echo "Full smoke flow passed: workspace=$workspace_id project=$project_id issue=$issue_id correlation=$correlation"

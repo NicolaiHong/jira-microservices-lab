@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { DomainError } from '../domain/errors';
 
 export function requestContext(request: FastifyRequest) {
+  // Gateway identity is trusted only after main.ts verifies the internal secret.
   const userId = request.headers['x-authenticated-user-id'];
   if (typeof userId !== 'string' || userId.length === 0) {
     throw new DomainError(

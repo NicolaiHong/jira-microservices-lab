@@ -39,7 +39,7 @@ public sealed class ChangeWorkspaceMemberRoleUseCase(
         }
 
         target.Role = role;
-        target.UpdatedAt = DateTimeOffset.UtcNow;
+        target.UpdatedAt = PostgresTimestamp.UtcNow();
         await memberRepository.SaveChangesAsync(cancellationToken);
 
         return new ChangeWorkspaceMemberRoleResult(

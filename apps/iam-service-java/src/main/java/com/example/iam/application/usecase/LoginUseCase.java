@@ -32,7 +32,7 @@ public final class LoginUseCase {
     }
 
     public LoginResult execute(LoginCommand command) {
-        String email = normalizeEmail(command.email());
+        String email = command.email().trim().toLowerCase(Locale.ROOT);
         User user = userRepository
             .findByEmail(email)
             .orElseThrow(LoginUseCase::invalidCredentials);
@@ -71,9 +71,5 @@ public final class LoginUseCase {
             ErrorCodes.InvalidCredentials,
             "Email or password is invalid"
         );
-    }
-
-    private String normalizeEmail(String email) {
-        return email.trim().toLowerCase(Locale.ROOT);
     }
 }

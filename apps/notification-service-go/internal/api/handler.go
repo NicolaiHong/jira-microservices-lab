@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/example/jira-like-polyglot-microservices/notification-service/internal/store"
+	"github.com/google/uuid"
 )
 
 type Handler struct {
@@ -105,6 +106,7 @@ func (h *Handler) markAllRead(w http.ResponseWriter, r *http.Request) {
 }
 
 func authenticatedUserID(w http.ResponseWriter, r *http.Request) (string, bool) {
+	// Routes must remain behind internalServiceAuthentication before trusting Gateway identity.
 	userID := strings.TrimSpace(r.Header.Get("x-authenticated-user-id"))
 	if userID == "" {
 		writeError(w, r, http.StatusUnauthorized, "AUTH_CONTEXT_REQUIRED", "Authenticated user context is required")
@@ -118,7 +120,7 @@ func correlationAndLogging(next http.Handler) http.Handler {
 		started := time.Now()
 		correlationID := strings.TrimSpace(r.Header.Get("x-correlation-id"))
 		if correlationID == "" {
-			correlationID = strings.ReplaceAll(time.Now().UTC().Format("20060102150405.000000000"), ".", "")
+			correlationID = uuid.New().String()
 			r.Header.Set("x-correlation-id", correlationID)
 		}
 		w.Header().Set("x-correlation-id", correlationID)

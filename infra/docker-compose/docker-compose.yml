@@ -162,6 +162,8 @@ services:
       REDIS_URL: redis://redis:6379
       KAFKA_BROKERS: ${KAFKA_BROKERS:-redpanda:9092}
       ISSUE_EVENTS_TOPIC: ${ISSUE_EVENTS_TOPIC:-issue.events.v1}
+      PROJECT_SERVICE_URL: http://project-service:8082
+      HTTP_CLIENT_TIMEOUT_MS: ${HTTP_CLIENT_TIMEOUT_MS:-3000}
       INTERNAL_SERVICE_SECRET: ${INTERNAL_SERVICE_SECRET:?Set INTERNAL_SERVICE_SECRET in infra/docker-compose/.env}
     expose:
       - "8084"

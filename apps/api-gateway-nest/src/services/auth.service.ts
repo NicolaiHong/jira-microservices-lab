@@ -46,7 +46,9 @@ export class AuthService {
     }
   }
 
-  refresh(body: unknown, correlationId: string) {
+  async refresh(body: unknown, correlationId: string, clientIp: string) {
+    const limit = await this.rateLimiter.hit(`rate:auth:refresh:ip:${clientIp}`, 10, 60);
+    if (limit.limited) throw this.rateLimited('refresh_ip', limit);
     return this.iamClient.refresh(body, correlationId);
   }
 

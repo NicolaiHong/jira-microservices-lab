@@ -29,7 +29,7 @@ export function IssueDetailModal({
 }: IssueDetailModalProps) {
   const comments = useComments(issueId);
   const history = useHistory(issueId);
-  const addComment = useAddComment(issueId);
+  const addComment = useAddComment(issueId, issue?.projectId);
   const queryClient = useQueryClient();
 
   async function refreshProjectIfArchived(error: unknown) {
@@ -43,22 +43,21 @@ export function IssueDetailModal({
     }
   }
 
+  async function refreshIssue() {
+    await queryClient.invalidateQueries({ queryKey: ["issue", issueId] });
+    if (issue?.projectId) {
+      await queryClient.invalidateQueries({ queryKey: ["issues", "list", issue.projectId] });
+    }
+  }
+
   const update = useMutation({
     mutationFn: (payload: Parameters<typeof updateIssue>[1]) =>
       updateIssue(issueId, payload, issue?.version ?? 0),
     retry: false,
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["issues", issueId] });
-      if (issue?.projectId) {
-        await queryClient.invalidateQueries({ queryKey: ["issues", issue.projectId] });
-      }
-    },
+    onSuccess: refreshIssue,
     onError: async (error) => {
       if (isConcurrentIssueModification(error)) {
-        await queryClient.invalidateQueries({ queryKey: ["issues", issueId] });
-        if (issue?.projectId) {
-          await queryClient.invalidateQueries({ queryKey: ["issues", issue.projectId] });
-        }
+        await refreshIssue();
       }
       await refreshProjectIfArchived(error);
     },
@@ -67,18 +66,10 @@ export function IssueDetailModal({
     mutationFn: (userId: string | null) =>
       assignIssue(issueId, userId, issue?.version ?? 0),
     retry: false,
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["issues", issueId] });
-      if (issue?.projectId) {
-        await queryClient.invalidateQueries({ queryKey: ["issues", issue.projectId] });
-      }
-    },
+    onSuccess: refreshIssue,
     onError: async (error) => {
       if (isConcurrentIssueModification(error)) {
-        await queryClient.invalidateQueries({ queryKey: ["issues", issueId] });
-        if (issue?.projectId) {
-          await queryClient.invalidateQueries({ queryKey: ["issues", issue.projectId] });
-        }
+        await refreshIssue();
       }
       await refreshProjectIfArchived(error);
     },
@@ -136,15 +127,29 @@ export function IssueDetailModal({
     }
     const formElement = event.currentTarget;
     const body = String(new FormData(formElement).get("body") ?? "");
+    const trimmedBody = body.trim();
+
+    if (!trimmedBody) {
+      toast.error("Comment cannot be blank");
+      return;
+    }
+
+    if (trimmedBody.length > 5000) {
+      toast.error("Comment must be 5,000 characters or fewer");
+      return;
+    }
+
     try {
-      await addComment.mutateAsync(body);
+      await addComment.mutateAsync(trimmedBody);
       formElement.reset();
     } catch (error) {
       await refreshProjectIfArchived(error);
       toast.error(
-        getIssueErrorCode(error) === "PROJECT_ARCHIVED"
-          ? "Project is read-only."
-          : "Could not add comment",
+        isConcurrentIssueModification(error)
+          ? "Issue changed elsewhere. Latest data has been loaded; your comment is still in the form."
+          : getIssueErrorCode(error) === "PROJECT_ARCHIVED"
+            ? "Project is read-only."
+            : "Could not add comment",
       );
     }
   }
@@ -160,7 +165,7 @@ export function IssueDetailModal({
             <CardDescription>{issue.key} · version {issue.version}</CardDescription>
           </CardHeader>
           <CardContent>
-            <form className="space-y-3" onSubmit={submitEdit}>
+            <form key={`${issue.id}:${issue.version}`} className="space-y-3" onSubmit={submitEdit}>
               <Input disabled={!isProjectWritable} defaultValue={issue.summary} maxLength={200} name="summary" required />
               <textarea className="min-h-28 w-full rounded-lg border bg-background p-3 text-sm" defaultValue={issue.description ?? ""} disabled={!isProjectWritable} name="description" placeholder="Description" />
               <div className="grid gap-3 sm:grid-cols-2">
@@ -174,7 +179,17 @@ export function IssueDetailModal({
         <Card>
           <CardHeader><CardTitle>Comments</CardTitle></CardHeader>
           <CardContent className="space-y-3">
-            <form className="flex gap-2" onSubmit={submitComment}><Input disabled={!isProjectWritable} name="body" placeholder="Write a comment" required /><Button disabled={!isProjectWritable || addComment.isPending} type="submit">Add</Button></form>
+            <form className="flex gap-2" onSubmit={submitComment}>
+              <textarea
+                className="min-h-10 flex-1 rounded-lg border bg-background px-3 py-2 text-sm"
+                disabled={!isProjectWritable}
+                maxLength={5000}
+                name="body"
+                placeholder="Write a comment"
+                required
+              />
+              <Button disabled={!isProjectWritable || addComment.isPending} type="submit">Add</Button>
+            </form>
             {comments.data?.map((comment) => <div className="rounded-lg border p-3 text-sm" key={comment.id}><p>{comment.body}</p><p className="mt-1 text-xs text-muted-foreground">{comment.authorUserId} · {new Date(comment.createdAt).toLocaleString()}</p></div>)}
             {comments.data?.length === 0 ? <p className="text-sm text-muted-foreground">No comments yet.</p> : null}
           </CardContent>
@@ -183,7 +198,7 @@ export function IssueDetailModal({
       <div className="space-y-5">
         <Card>
           <CardHeader><CardTitle>Assignment</CardTitle></CardHeader>
-          <CardContent><form className="space-y-3" onSubmit={submitAssignment}><Input defaultValue={issue.assigneeUserId ?? ""} disabled={!isProjectWritable} name="assigneeUserId" placeholder="Member UUID; empty to unassign" /><Button className="w-full" disabled={!isProjectWritable || assign.isPending} type="submit">Update assignee</Button></form></CardContent>
+          <CardContent><form key={`${issue.id}:${issue.version}`} className="space-y-3" onSubmit={submitAssignment}><Input defaultValue={issue.assigneeUserId ?? ""} disabled={!isProjectWritable} name="assigneeUserId" placeholder="Member UUID; empty to unassign" /><Button className="w-full" disabled={!isProjectWritable || assign.isPending} type="submit">Update assignee</Button></form></CardContent>
         </Card>
         <Card>
           <CardHeader><CardTitle>History</CardTitle></CardHeader>

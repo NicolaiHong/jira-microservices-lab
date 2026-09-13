@@ -59,15 +59,24 @@ tests/
 *.test.*
 *.spec.*
 
-# Keep .NET test source and project definitions under version control; files
-# using the .test.* or .spec.* naming convention stay local.
+# Keep test source and project definitions under version control; generated test
+# outputs remain covered by the rules above.
 !tests/
 !tests/**/*.cs
 !tests/**/*.csproj
+!apps/api-gateway-nest/src/**/*.spec.ts
+!apps/issue-service-nest/src/**/*.spec.ts
+!apps/web-client/src/**/*.test.ts
+!apps/web-client/src/**/*.test.tsx
+!apps/web-client/src/test/
+!apps/web-client/src/test/**/*.ts
+!apps/iam-service-java/src/test/
+!apps/iam-service-java/src/test/**/*.java
 
-# Keep the Project Service test suite local.
-tests/project-service-dotnet-tests/
-
-# Keep Markdown documentation local.
+# Keep Markdown focused on canonical docs and agent guidance.
 *.md
 !/README.md
+!docs/
+!docs/**
+!AGENTS.md
+!CLAUDE.md

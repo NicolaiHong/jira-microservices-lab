@@ -302,7 +302,9 @@ export class PostgresIssueRepository implements IssueRepository {
 
   async listComments(issueId: string): Promise<IssueComment[]> {
     const result = await this.database.query<CommentRow>(
-      `SELECT * FROM issue_comments WHERE issue_id = $1 ORDER BY created_at`,
+      `SELECT * FROM issue_comments
+       WHERE issue_id = $1
+       ORDER BY created_at ASC, id ASC`,
       [issueId],
     );
     return result.rows.map((row) => this.toComment(row));
@@ -310,7 +312,9 @@ export class PostgresIssueRepository implements IssueRepository {
 
   async listHistory(issueId: string): Promise<IssueHistory[]> {
     const result = await this.database.query<HistoryRow>(
-      `SELECT * FROM issue_history WHERE issue_id = $1 ORDER BY created_at`,
+      `SELECT * FROM issue_history
+       WHERE issue_id = $1
+       ORDER BY created_at ASC, id ASC`,
       [issueId],
     );
     return result.rows.map((row) => ({

@@ -27,7 +27,7 @@ public sealed class CreateWorkspaceUseCase(
             throw WorkspaceSlugAlreadyExists();
         }
 
-        var now = DateTimeOffset.UtcNow;
+        var now = PostgresTimestamp.UtcNow();
         var workspace = new Workspace
         {
             Id = Guid.NewGuid(),

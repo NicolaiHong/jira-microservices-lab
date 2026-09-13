@@ -23,7 +23,7 @@ public final class RegisterUseCase {
     }
 
     public RegisterResult execute(RegisterCommand command) {
-        String email = normalizeEmail(command.email());
+        String email = command.email().trim().toLowerCase(Locale.ROOT);
         if (userRepository.existsByEmail(email)) {
             throw emailAlreadyExists();
         }
@@ -47,9 +47,5 @@ public final class RegisterUseCase {
             ErrorCodes.EmailAlreadyExists,
             "Email already exists"
         );
-    }
-
-    private String normalizeEmail(String email) {
-        return email.trim().toLowerCase(Locale.ROOT);
     }
 }

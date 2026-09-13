@@ -54,17 +54,25 @@ export class OutboxPublisher implements OnModuleInit, OnModuleDestroy {
         this.connected = true;
       }
       const events = await this.issues.pendingEvents(50);
+      if (events.length === 0) return;
+      try {
+        await this.producer.send({
+          topic: process.env.ISSUE_EVENTS_TOPIC ?? 'issue.events.v1',
+          messages: events.map((event) => ({
+            key: event.aggregateId,
+            value: JSON.stringify({ ...event, schemaVersion: 1 }),
+          })),
+        });
+      } catch (error) {
+        // A batch can have partial broker delivery. Keep every row pending;
+        // deterministic event IDs make retries safe for the consumer.
+        for (const event of events) {
+          await this.issues.recordPublishFailure(event.eventId);
+        }
+        throw error;
+      }
       for (const event of events) {
         try {
-          await this.producer.send({
-            topic: process.env.ISSUE_EVENTS_TOPIC ?? 'issue.events.v1',
-            messages: [
-              {
-                key: event.aggregateId,
-                value: JSON.stringify({ ...event, schemaVersion: 1 }),
-              },
-            ],
-          });
           await this.issues.markEventPublished(event.eventId);
           this.logger.log(
             JSON.stringify({

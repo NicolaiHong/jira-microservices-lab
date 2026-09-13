@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { QueryError } from "@/components/shared/QueryError";
 import { Board } from "./Board";
 import { IssueForm } from "../IssueForm";
 import { useEpics, useIssues, useSprints } from "../../hooks/useIssues";
@@ -17,12 +18,14 @@ export function BoardScreen({
   const epics = useEpics(projectId);
   const sprints = useSprints(projectId);
 
+  const failed = [issues, epics, sprints].filter((query) => query.isError);
+  if (failed.length) return <QueryError resource="board" queries={failed} />;
   if (issues.isPending) return <p className="rounded-md border border-border bg-background p-4 text-sm text-muted-foreground">Loading board...</p>;
   return (
     <>
       <Board
         isProjectWritable={isProjectWritable}
-        issues={issues.isError ? [] : issues.data ?? []}
+        issues={issues.data ?? []}
         onCreateIssue={() => {
           if (isProjectWritable) {
             setIsCreating(true);

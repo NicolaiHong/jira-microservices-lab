@@ -1,4 +1,7 @@
+import type { Metadata } from "next";
 import { WorkspaceProjectDashboard } from "@/features/project/components/WorkspaceProjectDashboard";
+
+export const metadata: Metadata = { title: "Workspaces & projects · Orbit" };
 
 export default function ProjectsPage() {
   return (
