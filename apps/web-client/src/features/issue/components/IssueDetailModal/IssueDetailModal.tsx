@@ -7,6 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { QueryError } from "@/components/shared/QueryError";
+import { getApiErrorMessage } from "@/lib/apiError";
 import {
   assignIssue,
   getIssueErrorCode,
@@ -97,7 +99,7 @@ export function IssueDetailModal({
       toast.error(
         isConcurrentIssueModification(error)
           ? "Issue changed elsewhere. Latest data has been loaded."
-          : "Could not update issue",
+          : getApiErrorMessage(error, "Could not update issue"),
       );
     }
   }
@@ -115,7 +117,7 @@ export function IssueDetailModal({
       toast.error(
         isConcurrentIssueModification(error)
           ? "Issue changed elsewhere. Latest data has been loaded."
-          : "Could not change assignee",
+          : getApiErrorMessage(error, "Could not change assignee"),
       );
     }
   }
@@ -149,7 +151,7 @@ export function IssueDetailModal({
           ? "Issue changed elsewhere. Latest data has been loaded; your comment is still in the form."
           : getIssueErrorCode(error) === "PROJECT_ARCHIVED"
             ? "Project is read-only."
-            : "Could not add comment",
+            : getApiErrorMessage(error, "Could not add comment"),
       );
     }
   }
@@ -190,6 +192,8 @@ export function IssueDetailModal({
               />
               <Button disabled={!isProjectWritable || addComment.isPending} type="submit">Add</Button>
             </form>
+            {comments.isPending ? <p className="text-sm text-muted-foreground">Loading comments…</p> : null}
+            {comments.isError ? <QueryError resource="comments" queries={[comments]} /> : null}
             {comments.data?.map((comment) => <div className="rounded-lg border p-3 text-sm" key={comment.id}><p>{comment.body}</p><p className="mt-1 text-xs text-muted-foreground">{comment.authorUserId} · {new Date(comment.createdAt).toLocaleString()}</p></div>)}
             {comments.data?.length === 0 ? <p className="text-sm text-muted-foreground">No comments yet.</p> : null}
           </CardContent>
@@ -203,7 +207,10 @@ export function IssueDetailModal({
         <Card>
           <CardHeader><CardTitle>History</CardTitle></CardHeader>
           <CardContent className="space-y-3">
+            {history.isPending ? <p className="text-sm text-muted-foreground">Loading history…</p> : null}
+            {history.isError ? <QueryError resource="history" queries={[history]} /> : null}
             {history.data?.map((entry) => <div className="border-l-2 pl-3 text-sm" key={entry.id}><p className="font-medium">{entry.action.replaceAll("_", " ")}</p><p className="text-xs text-muted-foreground">{new Date(entry.createdAt).toLocaleString()}</p></div>)}
+            {history.data?.length === 0 ? <p className="text-sm text-muted-foreground">No history yet.</p> : null}
           </CardContent>
         </Card>
       </div>

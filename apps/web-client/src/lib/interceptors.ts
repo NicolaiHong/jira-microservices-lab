@@ -3,11 +3,11 @@ import axios, {
   type AxiosInstance,
   type InternalAxiosRequestConfig,
 } from "axios";
-import { toast } from "sonner";
 
 import { useAuthStore } from "@/features/auth/store";
 import type { AuthResponse } from "@/features/auth/types";
 
+import { toastApiError } from "./apiError";
 import { apiGatewayUrl } from "./http";
 
 interface RetryableRequestConfig extends InternalAxiosRequestConfig {
@@ -53,12 +53,6 @@ export function setupInterceptors(instance: AxiosInstance) {
       const originalRequest = error.config as
         RetryableRequestConfig | undefined;
 
-      if (!error.response && typeof window !== "undefined") {
-        toast.error("Network request failed", {
-          description: "Check that the API gateway is running.",
-        });
-      }
-
       if (
         error.response?.status === 401 &&
         originalRequest &&
@@ -74,6 +68,7 @@ export function setupInterceptors(instance: AxiosInstance) {
             return instance(originalRequest);
           } catch {
             useAuthStore.getState().clearSession();
+            toastApiError(error, "");
           }
         } else {
           useAuthStore.getState().clearSession();
