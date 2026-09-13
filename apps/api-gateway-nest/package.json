@@ -14,9 +14,9 @@
     "fast-uri": "3.1.7"
   },
   "dependencies": {
-    "@nestjs/common": "^11.1.27",
-    "@nestjs/core": "^11.1.27",
-    "@nestjs/platform-fastify": "^11.1.27",
+    "@nestjs/common": "^11.2.3",
+    "@nestjs/core": "^11.2.3",
+    "@nestjs/platform-fastify": "^11.2.3",
     "ioredis": "^5.11.1",
     "jsonwebtoken": "^9.0.3",
     "reflect-metadata": "^0.2.2",
