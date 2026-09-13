@@ -19,7 +19,7 @@ export default function ProjectRoadmapPage() {
       <title>{`Roadmap · ${projectQuery.data?.name ?? "Project"} · Orbit`}</title>
       <div><p className="text-xs text-muted-foreground">Projects / {projectQuery.data?.name ?? "..."}</p><h1 className="mt-1 text-2xl font-semibold tracking-tight">Roadmap</h1></div>
       <ProjectNavigation projectId={projectId} />
-      {failed.length ? <QueryError resource="roadmap" onRetry={() => { failed.forEach((query) => { void query.refetch(); }); }} /> : epicsQuery.isPending || projectQuery.isPending ? <p>Loading roadmap...</p> : <Roadmap
+      {failed.length ? <QueryError resource="roadmap" queries={failed} /> : epicsQuery.isPending || projectQuery.isPending ? <p>Loading roadmap...</p> : <Roadmap
         epics={epicsQuery.data ?? []}
         isProjectWritable={projectQuery.data?.status === "ACTIVE"}
         projectId={projectId}

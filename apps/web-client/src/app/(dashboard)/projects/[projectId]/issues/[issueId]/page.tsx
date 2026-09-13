@@ -15,8 +15,8 @@ export default function IssueDetailPage() {
   return (
     <section className="flex flex-col gap-4">
       <title>{`${issueQuery.data?.key ?? "Issue"} · Orbit`}</title>
-      {projectQuery.isError ? <QueryError resource="project" onRetry={() => { void projectQuery.refetch(); }} /> : null}
-      {issueQuery.isError ? <QueryError resource="issue" onRetry={() => { void issueQuery.refetch(); }} /> : issueQuery.isPending ? (
+      {projectQuery.isError ? <QueryError resource="project" queries={[projectQuery]} /> : null}
+      {issueQuery.isError ? <QueryError resource="issue" queries={[issueQuery]} /> : issueQuery.isPending ? (
         <p className="rounded-lg border bg-background p-4 text-sm text-muted-foreground">
           Loading issue...
         </p>

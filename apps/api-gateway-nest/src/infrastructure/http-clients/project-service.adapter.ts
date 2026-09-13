@@ -1,10 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { InternalServiceHttpClient } from './internal-service-http.client';
-
-interface ProjectServiceRequestContext {
-  userId: string;
-  correlationId: string;
-}
+import { InternalServiceHttpClient, RequestContext } from './internal-service-http.client';
 
 @Injectable()
 export class ProjectServiceAdapter {
@@ -16,12 +11,11 @@ export class ProjectServiceAdapter {
     unavailableCode: 'PROJECT_SERVICE_UNAVAILABLE',
     unavailableMessage: 'Project service is unavailable',
     objectResponseOnly: true,
-    nonemptyErrorStrings: true,
   });
 
   createWorkspace(
     body: unknown,
-    context: ProjectServiceRequestContext,
+    context: RequestContext,
   ): Promise<unknown> {
     return this.client.forward(
       'POST',
@@ -31,7 +25,7 @@ export class ProjectServiceAdapter {
     );
   }
 
-  listWorkspaces(context: ProjectServiceRequestContext): Promise<unknown> {
+  listWorkspaces(context: RequestContext): Promise<unknown> {
     return this.client.forward(
       'GET',
       '/internal/workspaces',
@@ -43,7 +37,7 @@ export class ProjectServiceAdapter {
   createProject(
     workspaceId: string,
     body: unknown,
-    context: ProjectServiceRequestContext,
+    context: RequestContext,
   ): Promise<unknown> {
     return this.client.forward(
       'POST',
@@ -56,7 +50,7 @@ export class ProjectServiceAdapter {
   addWorkspaceMember(
     workspaceId: string,
     body: unknown,
-    context: ProjectServiceRequestContext,
+    context: RequestContext,
   ): Promise<unknown> {
     return this.client.forward(
       'POST',
@@ -70,7 +64,7 @@ export class ProjectServiceAdapter {
     workspaceId: string,
     userId: string,
     body: unknown,
-    context: ProjectServiceRequestContext,
+    context: RequestContext,
   ): Promise<unknown> {
     return this.client.forward(
       'PATCH',
@@ -83,7 +77,7 @@ export class ProjectServiceAdapter {
   async removeWorkspaceMember(
     workspaceId: string,
     userId: string,
-    context: ProjectServiceRequestContext,
+    context: RequestContext,
   ): Promise<void> {
     await this.client.forward(
       'DELETE',
@@ -95,7 +89,7 @@ export class ProjectServiceAdapter {
 
   listProjects(
     workspaceId: string,
-    context: ProjectServiceRequestContext,
+    context: RequestContext,
   ): Promise<unknown> {
     return this.client.forward(
       'GET',
@@ -107,7 +101,7 @@ export class ProjectServiceAdapter {
 
   getProject(
     projectId: string,
-    context: ProjectServiceRequestContext,
+    context: RequestContext,
   ): Promise<unknown> {
     return this.client.forward(
       'GET',
@@ -120,7 +114,7 @@ export class ProjectServiceAdapter {
   updateProject(
     projectId: string,
     body: unknown,
-    context: ProjectServiceRequestContext,
+    context: RequestContext,
   ): Promise<unknown> {
     return this.client.forward(
       'PATCH',
@@ -132,7 +126,7 @@ export class ProjectServiceAdapter {
 
   async archiveProject(
     projectId: string,
-    context: ProjectServiceRequestContext,
+    context: RequestContext,
   ): Promise<void> {
     await this.client.forward(
       'DELETE',

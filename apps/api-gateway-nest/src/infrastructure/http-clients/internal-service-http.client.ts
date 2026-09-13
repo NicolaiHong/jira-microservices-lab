@@ -9,8 +9,12 @@ interface ClientOptions {
   unavailableCode: string;
   unavailableMessage: string;
   objectResponseOnly?: boolean;
-  nonemptyErrorStrings?: boolean;
   sendJsonBody?: boolean;
+}
+
+export interface RequestContext {
+  userId: string;
+  correlationId: string;
 }
 
 export class InternalServiceHttpClient {
@@ -71,7 +75,7 @@ export class InternalServiceHttpClient {
   }
 
   private errorString(value: unknown, fallback: string): string {
-    return typeof value === 'string' && (!this.options.nonemptyErrorStrings || value.length > 0) ? value : fallback;
+    return typeof value === 'string' && value ? value : fallback;
   }
 
   private object(value: unknown): Record<string, unknown> {

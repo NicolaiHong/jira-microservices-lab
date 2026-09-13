@@ -19,7 +19,7 @@ export function BoardScreen({
   const sprints = useSprints(projectId);
 
   const failed = [issues, epics, sprints].filter((query) => query.isError);
-  if (failed.length) return <QueryError resource="board" onRetry={() => { failed.forEach((query) => { void query.refetch(); }); }} />;
+  if (failed.length) return <QueryError resource="board" queries={failed} />;
   if (issues.isPending) return <p className="rounded-md border border-border bg-background p-4 text-sm text-muted-foreground">Loading board...</p>;
   return (
     <>

@@ -17,7 +17,8 @@ export default function ProjectBacklogPage() {
   const projectQuery = useProject(projectId);
   const issues = issuesQuery.data ?? [];
 
-  const failed = [issuesQuery, epicsQuery, sprintsQuery, projectQuery].filter((query) => query.isError);
+  const queries = [issuesQuery, epicsQuery, sprintsQuery, projectQuery];
+  const failed = queries.filter((query) => query.isError);
 
   return (
     <section className="flex flex-col gap-4">
@@ -27,7 +28,7 @@ export default function ProjectBacklogPage() {
         <h1 className="mt-1 text-2xl font-semibold tracking-tight">Backlog</h1>
       </div>
       <ProjectNavigation projectId={projectId} />
-      {failed.length ? <QueryError resource="backlog" onRetry={() => { failed.forEach((query) => { void query.refetch(); }); }} /> : [issuesQuery, epicsQuery, sprintsQuery, projectQuery].some((query) => query.isPending) ? (
+      {failed.length ? <QueryError resource="backlog" queries={failed} /> : queries.some((query) => query.isPending) ? (
         <p className="rounded-md border border-border bg-background p-4 text-sm text-muted-foreground">
           Loading backlog...
         </p>

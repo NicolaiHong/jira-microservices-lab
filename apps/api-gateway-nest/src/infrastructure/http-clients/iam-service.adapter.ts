@@ -11,7 +11,6 @@ export class IamServiceAdapter {
     unavailableCode: 'IAM_SERVICE_UNAVAILABLE',
     unavailableMessage: 'IAM service is unavailable',
     objectResponseOnly: true,
-    nonemptyErrorStrings: true,
   });
 
   register(body: unknown, correlationId: string): Promise<unknown> {

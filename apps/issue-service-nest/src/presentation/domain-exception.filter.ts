@@ -20,7 +20,12 @@ export class DomainExceptionFilter implements ExceptionFilter {
         ? request.headers['x-correlation-id']
         : request.id;
 
-    const status = error instanceof DomainError ? error.status : error instanceof HttpException ? error.getStatus() : 500;
+    const [status, body] =
+      error instanceof DomainError
+        ? [error.status, { code: error.code, message: error.message, details: error.details }]
+        : error instanceof HttpException
+          ? [error.getStatus(), { code: 'HTTP_ERROR', message: error.message, details: {} }]
+          : [500, { code: 'INTERNAL_ERROR', message: 'An unexpected error occurred', details: {} }];
     if (status >= 500) {
       // Exception messages can contain SQL values or credentials. Log diagnostic
       // stack frames and stable error codes, never request bodies or raw messages.
@@ -32,31 +37,6 @@ export class DomainExceptionFilter implements ExceptionFilter {
       }));
     }
 
-    if (error instanceof DomainError) {
-      void response.status(error.status).send({
-        code: error.code,
-        message: error.message,
-        details: error.details,
-        correlationId,
-      });
-      return;
-    }
-
-    if (error instanceof HttpException) {
-      void response.status(error.getStatus()).send({
-        code: 'HTTP_ERROR',
-        message: error.message,
-        details: {},
-        correlationId,
-      });
-      return;
-    }
-
-    void response.status(500).send({
-      code: 'INTERNAL_ERROR',
-      message: 'An unexpected error occurred',
-      details: {},
-      correlationId,
-    });
+    void response.status(status).send({ ...body, correlationId });
   }
 }

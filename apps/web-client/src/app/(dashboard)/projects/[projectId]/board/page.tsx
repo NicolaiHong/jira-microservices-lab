@@ -11,8 +11,6 @@ export default function ProjectBoardPage() {
   const { projectId } = useParams<{ projectId: string }>();
   const projectQuery = useProject(projectId);
 
-  const failed = [projectQuery].filter((query) => query.isError);
-
   return (
     <section className="flex flex-col gap-4">
       <title>{`Board · ${projectQuery.data?.name ?? "Project"} · Orbit`}</title>
@@ -21,7 +19,7 @@ export default function ProjectBoardPage() {
         <h1 className="mt-1 text-2xl font-semibold tracking-tight">Sprint board</h1>
       </div>
       <ProjectNavigation projectId={projectId} />
-      {failed.length ? <QueryError resource="project" onRetry={() => { void projectQuery.refetch(); }} /> : projectQuery.isPending ? <p>Loading project...</p> : <BoardScreen
+      {projectQuery.isError ? <QueryError resource="project" queries={[projectQuery]} /> : projectQuery.isPending ? <p>Loading project...</p> : <BoardScreen
         isProjectWritable={projectQuery.data?.status === "ACTIVE"}
         projectId={projectId}
       />}

@@ -11,6 +11,7 @@ import com.example.iam.domain.port.PasswordHasher;
 import com.example.iam.domain.port.RefreshTokenRepository;
 import com.example.iam.domain.port.TokenProvider;
 import com.example.iam.domain.port.UserRepository;
+import java.util.Locale;
 
 public final class LoginUseCase {
     private final UserRepository userRepository;
@@ -31,7 +32,7 @@ public final class LoginUseCase {
     }
 
     public LoginResult execute(LoginCommand command) {
-        String email = EmailNormalizer.normalize(command.email());
+        String email = command.email().trim().toLowerCase(Locale.ROOT);
         User user = userRepository
             .findByEmail(email)
             .orElseThrow(LoginUseCase::invalidCredentials);
@@ -71,5 +72,4 @@ public final class LoginUseCase {
             "Email or password is invalid"
         );
     }
-
 }

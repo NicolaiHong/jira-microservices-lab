@@ -17,7 +17,7 @@ public class RefreshTokenCleanup {
         this.clock = clock;
     }
 
-    @Scheduled(fixedDelayString = "${auth.refresh-token.cleanup-delay-ms:3600000}")
+    @Scheduled(fixedDelay = 3_600_000)
     @Transactional
     public void deleteUnusableTokens() {
         repository.deleteUnusableTokens(Instant.now(clock));

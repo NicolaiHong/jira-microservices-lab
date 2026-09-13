@@ -43,22 +43,21 @@ export function IssueDetailModal({
     }
   }
 
+  async function refreshIssue() {
+    await queryClient.invalidateQueries({ queryKey: ["issue", issueId] });
+    if (issue?.projectId) {
+      await queryClient.invalidateQueries({ queryKey: ["issues", "list", issue.projectId] });
+    }
+  }
+
   const update = useMutation({
     mutationFn: (payload: Parameters<typeof updateIssue>[1]) =>
       updateIssue(issueId, payload, issue?.version ?? 0),
     retry: false,
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["issue", issueId] });
-      if (issue?.projectId) {
-        await queryClient.invalidateQueries({ queryKey: ["issues", "list", issue.projectId] });
-      }
-    },
+    onSuccess: refreshIssue,
     onError: async (error) => {
       if (isConcurrentIssueModification(error)) {
-        await queryClient.invalidateQueries({ queryKey: ["issue", issueId] });
-        if (issue?.projectId) {
-          await queryClient.invalidateQueries({ queryKey: ["issues", "list", issue.projectId] });
-        }
+        await refreshIssue();
       }
       await refreshProjectIfArchived(error);
     },
@@ -67,18 +66,10 @@ export function IssueDetailModal({
     mutationFn: (userId: string | null) =>
       assignIssue(issueId, userId, issue?.version ?? 0),
     retry: false,
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["issue", issueId] });
-      if (issue?.projectId) {
-        await queryClient.invalidateQueries({ queryKey: ["issues", "list", issue.projectId] });
-      }
-    },
+    onSuccess: refreshIssue,
     onError: async (error) => {
       if (isConcurrentIssueModification(error)) {
-        await queryClient.invalidateQueries({ queryKey: ["issue", issueId] });
-        if (issue?.projectId) {
-          await queryClient.invalidateQueries({ queryKey: ["issues", "list", issue.projectId] });
-        }
+        await refreshIssue();
       }
       await refreshProjectIfArchived(error);
     },
