@@ -63,12 +63,13 @@ service reads another service's database.
 ## Run locally
 
 Prerequisites: Docker Desktop with Compose v2, Node.js for the web client, and
-an `INTERNAL_SERVICE_SECRET` value for local service-to-service calls.
+an `INTERNAL_SERVICE_SECRET` value for local service-to-service calls, and a
+`JWT_SECRET` of at least 32 bytes for signing access tokens.
 
 ```powershell
 cd infra/docker-compose
 Copy-Item .env.example .env
-# Set INTERNAL_SERVICE_SECRET in .env
+# Set INTERNAL_SERVICE_SECRET and JWT_SECRET (>= 32 bytes) in .env
 docker compose up --build
 ```
 

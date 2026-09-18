@@ -5,8 +5,8 @@ import { AuthenticatedRequest, GatewayUser } from './authenticated-request';
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
-  private readonly jwtSecret =
-    process.env.JWT_SECRET ?? 'local-week2-jwt-secret-change-me-32-bytes-minimum';
+  // main.ts refuses to start without a JWT_SECRET of at least 32 bytes.
+  private readonly jwtSecret = process.env.JWT_SECRET as string;
 
   canActivate(context: ExecutionContext): boolean {
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();

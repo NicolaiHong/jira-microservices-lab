@@ -7,7 +7,8 @@ Runtime configuration from Compose and service examples. Never commit actual sec
 | Variable | Used by | Meaning |
 | --- | --- | --- |
 | `INTERNAL_SERVICE_SECRET` | Gateway and downstream services | Required shared credential for internal HTTP endpoints |
-| `JWT_SECRET`, `JWT_ISSUER`, `JWT_AUDIENCE` | IAM and gateway | Access-token issuance and verification settings |
+| `JWT_SECRET` | IAM and gateway | Required HS256 signing secret, at least 32 bytes; both services refuse to start without it |
+| `JWT_ISSUER`, `JWT_AUDIENCE` | IAM and gateway | Access-token issuer and audience claims |
 | `DATABASE_URL` | IAM, Project, Issue | Service-owned PostgreSQL connection |
 | `REDIS_URL` | Gateway, Notification | Rate limiting / notification projection connection |
 | `KAFKA_BROKERS`, `ISSUE_EVENTS_TOPIC` | Issue, Notification | Event transport configuration |
