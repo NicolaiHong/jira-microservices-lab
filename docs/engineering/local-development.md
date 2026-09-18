@@ -4,7 +4,7 @@
 
 Run and observe the local stack.
 
-1. Copy `infra/docker-compose/.env.example` to a local `.env` and set `INTERNAL_SERVICE_SECRET`.
+1. Copy `infra/docker-compose/.env.example` to a local `.env` and set `INTERNAL_SERVICE_SECRET` and `JWT_SECRET` (at least 32 bytes).
 2. From `infra/docker-compose`, run `docker compose up --build`.
 3. Check `GET http://localhost:3000/health/services` through the gateway; each component exposes `/health` internally.
 4. Run focused service builds: Nest `npm run build`, IAM `mvn package -Dmaven.test.skip=true`, Project `dotnet build ProjectService.csproj`, Notification `go build ./...`.

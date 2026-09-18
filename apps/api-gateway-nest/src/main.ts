@@ -8,15 +8,26 @@ import { AppModule } from './app.module';
 import { ApiExceptionFilter } from './presentation/common/filters/api-exception.filter';
 import { configureHttpObservability } from './presentation/common/logging/http-observability';
 
+const MIN_JWT_SECRET_BYTES = 32;
+
+export function assertRequiredSecrets(env: NodeJS.ProcessEnv): void {
+  if (!env.INTERNAL_SERVICE_SECRET) {
+    throw new Error('INTERNAL_SERVICE_SECRET is required');
+  }
+  if (Buffer.byteLength(env.JWT_SECRET ?? '', 'utf8') < MIN_JWT_SECRET_BYTES) {
+    throw new Error(
+      `JWT_SECRET is required and must be at least ${MIN_JWT_SECRET_BYTES} bytes`,
+    );
+  }
+}
+
 async function bootstrap(): Promise<void> {
+  assertRequiredSecrets(process.env);
   const app = await NestFactory.create<NestFastifyApplication>(
     AppModule,
     new FastifyAdapter({ bodyLimit: 1024 * 1024 }),
   );
   const port = Number(process.env.PORT ?? 3000);
-  if (!process.env.INTERNAL_SERVICE_SECRET) {
-    throw new Error('INTERNAL_SERVICE_SECRET is required');
-  }
   const allowedOrigins = (
     process.env.CORS_ALLOWED_ORIGINS ?? 'http://localhost:3001'
   )
@@ -37,4 +48,6 @@ async function bootstrap(): Promise<void> {
   await app.listen(port, '0.0.0.0');
 }
 
-void bootstrap();
+if (require.main === module) {
+  void bootstrap();
+}

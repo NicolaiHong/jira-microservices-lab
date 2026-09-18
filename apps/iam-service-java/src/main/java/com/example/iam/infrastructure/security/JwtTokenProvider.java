@@ -18,6 +18,8 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class JwtTokenProvider implements TokenProvider {
+    static final int MIN_SECRET_BYTES = 32;
+
     private final SecretKey signingKey;
     private final long accessTokenTtlMinutes;
     private final long refreshTokenTtlDays;
@@ -32,6 +34,9 @@ public class JwtTokenProvider implements TokenProvider {
         @Value("${auth.jwt.issuer}") String issuer,
         @Value("${auth.jwt.audience}") String audience
     ) {
+        if (secret == null || secret.getBytes(StandardCharsets.UTF_8).length < MIN_SECRET_BYTES) {
+            throw new IllegalStateException("JWT_SECRET must be at least " + MIN_SECRET_BYTES + " bytes");
+        }
         this.signingKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
         this.accessTokenTtlMinutes = accessTokenTtlMinutes;
         this.refreshTokenTtlDays = refreshTokenTtlDays;

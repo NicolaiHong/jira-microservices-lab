@@ -31,7 +31,7 @@ async function bootstrap(): Promise<void> {
       suppliedBuffer.length !== expectedBuffer.length ||
       !timingSafeEqual(suppliedBuffer, expectedBuffer)
     ) {
-      reply.code(401).send({
+      return reply.code(401).send({
         code: 'INTERNAL_SERVICE_AUTH_REQUIRED',
         message: 'Valid internal service credentials are required',
         details: {},
