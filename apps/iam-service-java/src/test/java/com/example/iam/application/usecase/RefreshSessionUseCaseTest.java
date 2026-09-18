@@ -57,6 +57,30 @@ class RefreshSessionUseCaseTest {
         assertEquals(ErrorCodes.InvalidRefreshToken, replay.getErrorCode());
     }
 
+    @Test
+    void rejectsUnknownExpiredAndBlockedSessionsWithoutRotation() {
+        UUID activeId = UUID.randomUUID();
+        UUID blockedId = UUID.randomUUID();
+        FakeTokenProvider tokens = new FakeTokenProvider();
+        FakeRefreshTokenRepository refreshTokens = new FakeRefreshTokenRepository();
+        refreshTokens.save(new RefreshToken(UUID.randomUUID(), activeId, tokens.hashRefreshToken("expired"), false, Instant.now().minusSeconds(1)));
+        refreshTokens.save(new RefreshToken(UUID.randomUUID(), blockedId, tokens.hashRefreshToken("blocked"), false, Instant.now().plus(1, ChronoUnit.DAYS)));
+        FakeUserRepository users = new FakeUserRepository(
+            new User(activeId, "active@example.com", "hash", UserStatus.ACTIVE, true, Set.of("MEMBER")),
+            new User(blockedId, "blocked@example.com", "hash", UserStatus.BLOCKED, true, Set.of("MEMBER"))
+        );
+        RefreshSessionUseCase useCase = new RefreshSessionUseCase(users, refreshTokens, tokens);
+
+        assertEquals(ErrorCodes.InvalidRefreshToken, codeOf(() -> useCase.execute(new RefreshSessionCommand("unknown"))));
+        assertEquals(ErrorCodes.InvalidRefreshToken, codeOf(() -> useCase.execute(new RefreshSessionCommand("expired"))));
+        assertEquals(ErrorCodes.UserBlocked, codeOf(() -> useCase.execute(new RefreshSessionCommand("blocked"))));
+        assertEquals(0, tokens.sequence);
+    }
+
+    private static String codeOf(org.junit.jupiter.api.function.Executable call) {
+        return assertThrows(DomainException.class, call).getErrorCode();
+    }
+
     private static final class FakeTokenProvider implements TokenProvider {
         private int sequence;
         public String issueAccessToken(User user) { return "access-token"; }
@@ -90,10 +114,12 @@ class RefreshSessionUseCaseTest {
     }
 
     private static final class FakeUserRepository implements UserRepository {
-        private final User user;
-        private FakeUserRepository(User user) { this.user = user; }
+        private final Map<UUID, User> users = new HashMap<>();
+        private FakeUserRepository(User... values) { for (User value : values) users.put(value.getId(), value); }
         public Optional<User> findByEmail(String email) { return Optional.empty(); }
-        public Optional<User> findById(UUID id) { return user.getId().equals(id) ? Optional.of(user) : Optional.empty(); }
+        public Optional<User> findById(UUID id) { return Optional.ofNullable(users.get(id)); }
+        public java.util.List<com.example.iam.domain.model.UserIdentity> findIdentitiesByIds(java.util.Collection<UUID> ids) { return java.util.List.of(); }
+        public java.util.List<com.example.iam.domain.model.UserIdentity> findIdentitiesByEmails(java.util.Collection<String> emails) { return java.util.List.of(); }
         public boolean existsByEmail(String email) { return false; }
         public User save(User value) { return value; }
     }

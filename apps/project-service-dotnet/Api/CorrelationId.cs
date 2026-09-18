@@ -23,3 +23,21 @@ public static class CorrelationId
         return value;
     }
 }
+
+public sealed class CorrelationIdPropagationHandler(IHttpContextAccessor httpContextAccessor)
+    : DelegatingHandler
+{
+    protected override Task<HttpResponseMessage> SendAsync(
+        HttpRequestMessage request,
+        CancellationToken cancellationToken)
+    {
+        if (httpContextAccessor.HttpContext is { } context)
+        {
+            request.Headers.TryAddWithoutValidation(
+                CorrelationId.HeaderName,
+                CorrelationId.GetOrCreate(context));
+        }
+
+        return base.SendAsync(request, cancellationToken);
+    }
+}

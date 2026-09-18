@@ -100,6 +100,23 @@ public static partial class RequestValidation
         throw ValidationError(field, $"{field} must be a valid UUID");
     }
 
+    public static string? OptionalEmail(string? value)
+    {
+        var email = OptionalString(value, "email", 255)?.ToLowerInvariant();
+        if (email is null)
+        {
+            return null;
+        }
+
+        var at = email.IndexOf('@');
+        if (at <= 0 || at != email.LastIndexOf('@') || at == email.Length - 1)
+        {
+            throw ValidationError("email", "email must be a valid email address");
+        }
+
+        return email;
+    }
+
     public static string NormalizeWorkspaceRole(string? value)
     {
         var role = RequiredString(value, "role", 30).ToUpperInvariant();

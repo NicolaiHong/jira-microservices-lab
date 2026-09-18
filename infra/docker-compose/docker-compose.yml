@@ -122,12 +122,16 @@ services:
     environment:
       PORT: 8082
       DATABASE_URL: Host=postgres;Port=5432;Database=project_db;Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-postgres}
+      IAM_SERVICE_URL: http://iam-service:8081
+      HTTP_CLIENT_TIMEOUT_MS: ${HTTP_CLIENT_TIMEOUT_MS:-3000}
       INTERNAL_SERVICE_SECRET: ${INTERNAL_SERVICE_SECRET:?Set INTERNAL_SERVICE_SECRET in infra/docker-compose/.env}
     expose:
       - "8082"
     depends_on:
       postgres:
         condition: service_healthy
+      iam-service:
+        condition: service_started
     restart: unless-stopped
 
   issue-service:

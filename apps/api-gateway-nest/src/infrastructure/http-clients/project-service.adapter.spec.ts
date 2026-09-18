@@ -78,6 +78,8 @@ test('forwards the complete Project lifecycle through the internal contract', as
     await adapter.getProject('project 1', context);
     await adapter.updateProject('project 1', { description: null }, context);
     await adapter.archiveProject('project 1', context);
+    await adapter.listWorkspaceMembers('workspace 1', context);
+    await adapter.addWorkspaceMember('workspace 1', { email: 'a@example.test', role: 'MEMBER' }, context);
 
     assert.deepEqual(
       requests.map((request) => ({
@@ -110,6 +112,16 @@ test('forwards the complete Project lifecycle through the internal contract', as
           path: 'http://project-service.test/internal/projects/project%201',
           method: 'DELETE',
           body: undefined,
+        },
+        {
+          path: 'http://project-service.test/internal/workspaces/workspace%201/members',
+          method: 'GET',
+          body: undefined,
+        },
+        {
+          path: 'http://project-service.test/internal/workspaces/workspace%201/members',
+          method: 'POST',
+          body: JSON.stringify({ email: 'a@example.test', role: 'MEMBER' }),
         },
       ],
     );

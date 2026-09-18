@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { toastApiError } from "@/lib/apiError";
 import { ProjectList } from "./ProjectList";
+import { WorkspaceMembers } from "./WorkspaceMembers";
 import {
   useCreateProject,
   useCreateWorkspace,
@@ -124,6 +125,9 @@ export function WorkspaceProjectDashboard() {
         ) : (
           <ProjectList projects={projects.data ?? []} />
         )}
+        {activeWorkspace ? (
+          <WorkspaceMembers actorRole={activeWorkspace.role} key={activeWorkspace.id} workspaceId={activeWorkspace.id} />
+        ) : null}
       </section>
     </div>
   );

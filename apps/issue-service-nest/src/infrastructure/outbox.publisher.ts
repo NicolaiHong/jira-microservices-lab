@@ -19,6 +19,10 @@ export class OutboxPublisher implements OnModuleInit, OnModuleDestroy {
   private running = false;
   private connected = false;
 
+  get isConnected(): boolean {
+    return this.connected;
+  }
+
   constructor(
     @Inject(ISSUE_REPOSITORY) private readonly issues: IssueRepository,
   ) {
@@ -67,7 +71,7 @@ export class OutboxPublisher implements OnModuleInit, OnModuleDestroy {
         // A batch can have partial broker delivery. Keep every row pending;
         // deterministic event IDs make retries safe for the consumer.
         for (const event of events) {
-          await this.issues.recordPublishFailure(event.eventId);
+          await this.recordFailure(event.eventId, error);
         }
         throw error;
       }
@@ -84,13 +88,13 @@ export class OutboxPublisher implements OnModuleInit, OnModuleDestroy {
             }),
           );
         } catch (error) {
-          await this.issues.recordPublishFailure(event.eventId);
+          await this.recordFailure(event.eventId, error);
           this.logger.error(
             JSON.stringify({
               service: 'issue-service',
               eventId: event.eventId,
               message: 'outbox_event_publish_failed',
-              error: error instanceof Error ? error.message : String(error),
+              error: describe(error),
             }),
           );
         }
@@ -101,11 +105,33 @@ export class OutboxPublisher implements OnModuleInit, OnModuleDestroy {
         JSON.stringify({
           service: 'issue-service',
           message: 'outbox_publisher_unavailable',
-          error: error instanceof Error ? error.message : String(error),
+          error: describe(error),
         }),
       );
     } finally {
       this.running = false;
     }
   }
+
+  private async recordFailure(eventId: string, error: unknown): Promise<void> {
+    const { attempts, abandoned } = await this.issues.recordPublishFailure(
+      eventId,
+      describe(error),
+    );
+    if (abandoned) {
+      this.logger.error(
+        JSON.stringify({
+          service: 'issue-service',
+          eventId,
+          attempts,
+          message: 'outbox_event_abandoned',
+          error: describe(error),
+        }),
+      );
+    }
+  }
+}
+
+function describe(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }

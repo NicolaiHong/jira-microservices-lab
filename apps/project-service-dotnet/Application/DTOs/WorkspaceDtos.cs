@@ -23,7 +23,18 @@ public sealed record UserWorkspaceResult(
 
 public sealed record AddWorkspaceMemberCommand(
     Guid? UserId,
-    string? Role);
+    string? Role,
+    string? Email = null);
+
+public sealed record ListWorkspaceMembersResult(
+    IReadOnlyList<WorkspaceMemberListItemResult> Items);
+
+public sealed record WorkspaceMemberListItemResult(
+    Guid UserId,
+    string? Email,
+    string Role,
+    DateTimeOffset JoinedAt,
+    DateTimeOffset UpdatedAt);
 
 public sealed record ChangeWorkspaceMemberRoleCommand(string? Role);
 

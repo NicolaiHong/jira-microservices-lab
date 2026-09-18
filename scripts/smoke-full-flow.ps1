@@ -71,8 +71,11 @@ Write-Host "3/10 Create workspace"
 $workspaceResult = Invoke-Gateway POST "/api/workspaces" @{ name = "Smoke Workspace $suffix"; slug = "smoke-$suffix" } $ownerSession.accessToken
 $workspaceId = $workspaceResult.workspace.id
 
-Write-Host "4/10 Add member"
-Invoke-Gateway POST "/api/workspaces/$workspaceId/members" @{ userId = $member.user.id; role = "MEMBER" } $ownerSession.accessToken | Out-Null
+Write-Host "4/10 Add member by email and list members"
+Invoke-Gateway POST "/api/workspaces/$workspaceId/members" @{ email = $memberEmail; role = "MEMBER" } $ownerSession.accessToken | Out-Null
+$members = Invoke-Gateway GET "/api/workspaces/$workspaceId/members" $null $memberSession.accessToken
+$listedMember = $members.items | Where-Object { $_.userId -eq $member.user.id }
+if ($listedMember.email -ne $memberEmail) { throw "Workspace members did not resolve the member email through IAM" }
 
 Write-Host "5/10 Create project"
 $projectResult = Invoke-Gateway POST "/api/workspaces/$workspaceId/projects" @{ name = "Smoke Project $suffix"; key = $projectKey; description = "Full system smoke" } $ownerSession.accessToken
@@ -91,16 +94,16 @@ $history = Invoke-Gateway GET "/api/issues/$issueId/history" $null $ownerSession
 if ($history.items.Count -lt 3) { throw "Expected at least 3 history entries" }
 
 Write-Host "9/10 Wait for Kafka notification"
-$notifications = $null
-for ($attempt = 0; $attempt -lt 10; $attempt++) {
+$transitioned = $null
+for ($attempt = 0; $attempt -lt 30 -and -not $transitioned; $attempt++) {
     Start-Sleep -Seconds 2
     $notifications = Invoke-Gateway GET "/api/notifications" $null $memberSession.accessToken
-    if ($notifications.items.Count -gt 0) { break }
+    $transitioned = $notifications.items | Where-Object { $_.issueId -eq $issueId -and $_.type -eq "issue.transitioned" } | Select-Object -First 1
 }
-if ($notifications.items.Count -eq 0) { throw "No notification arrived through Kafka" }
+if (-not $transitioned) { throw "No issue.transitioned notification arrived through Kafka" }
 
 Write-Host "10/10 Mark notification read and rotate session"
-Invoke-Gateway PATCH "/api/notifications/$($notifications.items[0].id)/read" $null $memberSession.accessToken | Out-Null
+Invoke-Gateway PATCH "/api/notifications/$($transitioned.id)/read" $null $memberSession.accessToken | Out-Null
 $rotated = Invoke-Gateway POST "/api/auth/refresh" $null "" $ownerJar
 if (-not $rotated.accessToken) { throw "Refresh token rotation failed" }
 

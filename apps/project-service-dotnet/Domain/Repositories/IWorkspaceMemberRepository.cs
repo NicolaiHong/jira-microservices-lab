@@ -7,6 +7,10 @@ public interface IWorkspaceMemberRepository
         Guid userId,
         CancellationToken cancellationToken);
 
+    Task<IReadOnlyList<WorkspaceMember>> ListByWorkspaceIdAsync(
+        Guid workspaceId,
+        CancellationToken cancellationToken);
+
     Task<IReadOnlyList<WorkspaceMember>> ListByUserIdAsync(
         Guid userId,
         CancellationToken cancellationToken);

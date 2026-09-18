@@ -15,5 +15,7 @@ public static class ProjectErrorCodes
     public const string WorkspaceMemberNotFound = "WORKSPACE_MEMBER_NOT_FOUND";
     public const string InvalidWorkspaceRole = "INVALID_WORKSPACE_ROLE";
     public const string LastWorkspaceOwner = "LAST_WORKSPACE_OWNER";
+    public const string UserNotFound = "USER_NOT_FOUND";
+    public const string IamServiceUnavailable = "IAM_SERVICE_UNAVAILABLE";
     public const string InternalError = "INTERNAL_ERROR";
 }

@@ -3,9 +3,12 @@ package com.example.iam.infrastructure.persistence;
 import com.example.iam.domain.ErrorCodes;
 import com.example.iam.domain.exception.DomainException;
 import com.example.iam.domain.model.User;
+import com.example.iam.domain.model.UserIdentity;
 import com.example.iam.domain.port.UserRepository;
 import com.example.iam.infrastructure.persistence.jpa.UserJpaEntity;
 import com.example.iam.infrastructure.persistence.jpa.UserJpaRepository;
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -27,6 +30,16 @@ public class UserRepositoryAdapter implements UserRepository {
     @Override
     public Optional<User> findById(UUID id) {
         return userJpaRepository.findById(id).map(this::toDomain);
+    }
+
+    @Override
+    public List<UserIdentity> findIdentitiesByIds(Collection<UUID> ids) {
+        return userJpaRepository.findIdentitiesByIdIn(ids);
+    }
+
+    @Override
+    public List<UserIdentity> findIdentitiesByEmails(Collection<String> normalizedEmails) {
+        return userJpaRepository.findIdentitiesByLowerEmailIn(normalizedEmails);
     }
 
     @Override

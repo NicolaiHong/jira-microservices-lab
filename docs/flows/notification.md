@@ -34,7 +34,7 @@ The same event/recipient produces the same deterministic ID, so Redis write is i
 
 ## Failure / Error Flows
 
-Publisher records failed attempts and retries up to its query limit; malformed/unsupported events go to a dead-letter topic when delivery succeeds. Redis and Project access errors prevent Kafka offset commit and are retried. The consumer never advances or commits a partition past a retryable failed record. After a successful DLQ write it can commit that record; a DLQ or commit failure leaves the offset uncommitted.
+Publisher records each failed attempt with its last error and retries with per-event exponential backoff (1 s doubling, capped at 5 minutes). After 20 failed attempts the event is abandoned: it stays unpublished, `outbox_event_abandoned` is logged, and Issue Service `/health` reports `degraded`. Malformed/unsupported events go to a dead-letter topic when delivery succeeds. Redis and Project access errors prevent Kafka offset commit and are retried. The consumer never advances or commits a partition past a retryable failed record. After a successful DLQ write it can commit that record; a DLQ or commit failure leaves the offset uncommitted.
 
 ## Business Rules
 

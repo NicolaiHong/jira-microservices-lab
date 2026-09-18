@@ -6,7 +6,8 @@ using ProjectService.Domain.Repositories;
 namespace ProjectService.Application.UseCases;
 
 public sealed class AddWorkspaceMemberUseCase(
-    IWorkspaceMemberRepository memberRepository)
+    IWorkspaceMemberRepository memberRepository,
+    IUserDirectory userDirectory)
 {
     public async Task<AddWorkspaceMemberResult> ExecuteAsync(
         Guid workspaceId,
@@ -23,9 +24,28 @@ public sealed class AddWorkspaceMemberUseCase(
             memberRepository, workspaceId, authenticatedUserId, cancellationToken);
         WorkspaceAccess.RequireMemberManager(actor);
 
-        var userId = RequestValidation.RequiredUuid(command.UserId, "userId");
+        var email = RequestValidation.OptionalEmail(command.Email);
+        if (email is not null && command.UserId is not null)
+        {
+            throw RequestValidation.ValidationError("email", "Provide either userId or email, not both");
+        }
+
+        var userId = email is null
+            ? RequestValidation.RequiredUuid(command.UserId, "userId")
+            : Guid.Empty;
         var role = RequestValidation.NormalizeWorkspaceRole(command.Role);
         WorkspaceAccess.RequireOwnerForOwnerRole(actor, role);
+
+        if (email is not null)
+        {
+            // Authorization above runs first so only member managers can probe emails.
+            var users = await userDirectory.LookupAsync([], [email], cancellationToken);
+            userId = users.FirstOrDefault(user => user.Email == email)?.Id
+                ?? throw new DomainException(
+                    404,
+                    ProjectErrorCodes.UserNotFound,
+                    "No account uses that email");
+        }
 
         if (await memberRepository.FindMembershipAsync(
                 workspaceId, userId, cancellationToken) is not null)

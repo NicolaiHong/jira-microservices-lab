@@ -12,6 +12,11 @@ vi.mock("../../hooks/useIssues", () => ({
   useCreateIssue: () => ({ mutateAsync: mocks.create, isPending: false }),
   useTransitionIssue: () => ({ mutate: vi.fn(), isPending: false }),
 }));
+vi.mock("@/features/project/hooks/useProjects", () => ({
+  useProjectMembers: () => ({
+    data: [{ userId: "member-2", email: "member@example.test", role: "MEMBER", joinedAt: "", updatedAt: "" }],
+  }),
+}));
 import { BoardScreen } from "./BoardScreen";
 
 afterEach(cleanup);
@@ -32,7 +37,8 @@ it("opens the actual issue form from the board and submits to the project mutati
   fireEvent.click(screen.getAllByRole("button", { name: "Create issue" })[0]);
   const form = screen.getByRole("complementary", { name: "Create issue" });
   fireEvent.change(within(form).getByLabelText("Summary"), { target: { value: "New issue" } });
+  fireEvent.change(within(form).getByRole("combobox", { name: "Assignee" }), { target: { value: "member-2" } });
   fireEvent.submit(form.querySelector("form")!);
-  await waitFor(() => expect(mocks.create).toHaveBeenCalledWith(expect.objectContaining({ summary: "New issue", type: "TASK", priority: "MEDIUM" })));
+  await waitFor(() => expect(mocks.create).toHaveBeenCalledWith(expect.objectContaining({ summary: "New issue", type: "TASK", priority: "MEDIUM", assigneeUserId: "member-2" })));
   await waitFor(() => expect(screen.queryByRole("complementary")).not.toBeInTheDocument());
 });

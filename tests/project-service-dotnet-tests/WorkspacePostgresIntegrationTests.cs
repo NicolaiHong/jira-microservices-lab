@@ -119,13 +119,13 @@ public sealed class WorkspacePostgresIntegrationTests
             synchronizeMembershipUserId: targetUserId);
 
         var outcomes = await Task.WhenAll(
-            CaptureAsync(async () => await new AddWorkspaceMemberUseCase(firstRepository)
+            CaptureAsync(async () => await new AddWorkspaceMemberUseCase(firstRepository, FakeUserDirectory.Empty)
                 .ExecuteAsync(
                     workspaceId,
                     new AddWorkspaceMemberCommand(targetUserId, WorkspaceRoles.Member),
                     ownerId,
                     CancellationToken.None)),
-            CaptureAsync(async () => await new AddWorkspaceMemberUseCase(secondRepository)
+            CaptureAsync(async () => await new AddWorkspaceMemberUseCase(secondRepository, FakeUserDirectory.Empty)
                 .ExecuteAsync(
                     workspaceId,
                     new AddWorkspaceMemberCommand(targetUserId, WorkspaceRoles.Member),
@@ -194,6 +194,11 @@ public sealed class WorkspacePostgresIntegrationTests
 
             return member;
         }
+
+        public Task<IReadOnlyList<WorkspaceMember>> ListByWorkspaceIdAsync(
+            Guid workspaceId,
+            CancellationToken cancellationToken) =>
+            inner.ListByWorkspaceIdAsync(workspaceId, cancellationToken);
 
         public Task<IReadOnlyList<WorkspaceMember>> ListByUserIdAsync(
             Guid userId,

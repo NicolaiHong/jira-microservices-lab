@@ -511,6 +511,72 @@ test(
         secondHistoryId,
       ]);
     });
+
+    await t.test('backs off failed outbox deliveries and reports events that exhaust their attempts', async () => {
+      const initial = await repository.createIssue(
+        newIssue(randomUUID(), 'Outbox retry visibility'),
+      );
+      await database.query(
+        'UPDATE outbox_events SET published_at = NOW() WHERE aggregate_id <> $1',
+        [initial.id],
+      );
+      const [{ event_id: eventId }] = (
+        await database.query<{ event_id: string }>(
+          'SELECT event_id FROM outbox_events WHERE aggregate_id = $1',
+          [initial.id],
+        )
+      ).rows;
+      const outboxRow = async () =>
+        (
+          await database.query<{ last_error: string; delay_seconds: number }>(
+            `SELECT last_error,
+                    EXTRACT(EPOCH FROM next_attempt_at - NOW())::float8 AS delay_seconds
+             FROM outbox_events WHERE event_id = $1`,
+            [eventId],
+          )
+        ).rows[0];
+      assert.deepEqual(
+        (await repository.pendingEvents(50)).map((event) => event.eventId),
+        [eventId],
+      );
+
+      assert.deepEqual(
+        await repository.recordPublishFailure(eventId, 'broker unavailable'),
+        { attempts: 1, abandoned: false },
+      );
+      assert.deepEqual(await repository.pendingEvents(50), []);
+      const afterFirst = await outboxRow();
+      assert.equal(afterFirst.last_error, 'broker unavailable');
+      assert.ok(afterFirst.delay_seconds > 0 && afterFirst.delay_seconds <= 1.5);
+      assert.equal((await repository.outboxStatus()).pending, 1);
+
+      await database.query(
+        'UPDATE outbox_events SET publish_attempts = 18, next_attempt_at = NOW() WHERE event_id = $1',
+        [eventId],
+      );
+      assert.deepEqual(
+        await repository.recordPublishFailure(eventId, 'broker unavailable'),
+        { attempts: 19, abandoned: false },
+      );
+      const capped = await outboxRow();
+      assert.ok(capped.delay_seconds > 290 && capped.delay_seconds <= 300);
+
+      assert.deepEqual(
+        await repository.recordPublishFailure(eventId, 'x'.repeat(2000)),
+        { attempts: 20, abandoned: true },
+      );
+      await database.query(
+        'UPDATE outbox_events SET next_attempt_at = NOW() WHERE event_id = $1',
+        [eventId],
+      );
+      assert.deepEqual(await repository.pendingEvents(50), []);
+      assert.equal((await outboxRow()).last_error.length, 1000);
+      assert.deepEqual(await repository.outboxStatus(), {
+        pending: 0,
+        abandoned: 1,
+        oldestPendingSeconds: null,
+      });
+    });
   },
 );
 

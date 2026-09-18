@@ -5,6 +5,8 @@ import { XIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { MemberSelect } from "@/features/project/components/MemberSelect";
+import { useProjectMembers } from "@/features/project/hooks/useProjects";
 import { toastApiError } from "@/lib/apiError";
 import { useCreateIssue } from "../../hooks/useIssues";
 import type { Epic, Sprint } from "../../types";
@@ -18,6 +20,7 @@ interface IssueFormProps {
 
 export function IssueForm({ projectId, epics, sprints, onClose }: IssueFormProps) {
   const createIssue = useCreateIssue(projectId);
+  const members = useProjectMembers(projectId);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -49,7 +52,7 @@ export function IssueForm({ projectId, epics, sprints, onClose }: IssueFormProps
         <label className="block text-sm font-medium">Description<textarea className="mt-1.5 min-h-32 w-full border bg-background p-3 text-sm" name="description" placeholder="Add context, acceptance criteria, or useful links." /></label>
         <div className="grid gap-4 sm:grid-cols-2"><label className="block text-sm font-medium">Issue type<select className="mt-1.5 h-9 w-full border bg-background px-2 text-sm" defaultValue="TASK" name="type"><option value="TASK">Task</option><option value="BUG">Bug</option><option value="STORY">Story</option></select></label><label className="block text-sm font-medium">Priority<select className="mt-1.5 h-9 w-full border bg-background px-2 text-sm" defaultValue="MEDIUM" name="priority"><option value="LOW">Low</option><option value="MEDIUM">Medium</option><option value="HIGH">High</option><option value="CRITICAL">Highest</option></select></label></div>
         <div className="grid gap-4 sm:grid-cols-2"><label className="block text-sm font-medium">Epic<select className="mt-1.5 h-9 w-full border bg-background px-2 text-sm" defaultValue="" name="epicId"><option value="">No epic</option>{epics.map((epic) => <option key={epic.id} value={epic.id}>{epic.name}</option>)}</select></label><label className="block text-sm font-medium">Sprint<select className="mt-1.5 h-9 w-full border bg-background px-2 text-sm" defaultValue="" name="sprintId"><option value="">Backlog</option>{sprints.filter((sprint) => sprint.status === "ACTIVE").map((sprint) => <option key={sprint.id} value={sprint.id}>{sprint.name}</option>)}</select></label></div>
-        <label className="block text-sm font-medium">Assignee ID<Input className="mt-1.5" name="assigneeUserId" placeholder="Optional member UUID" /></label>
+        <label className="block text-sm font-medium">Assignee<MemberSelect aria-label="Assignee" className="mt-1.5 h-9 w-full border bg-background px-2 text-sm" disabled={!members.data} members={members.data ?? []} name="assigneeUserId" /></label>
         <div className="flex items-center justify-end gap-2 border-t border-border pt-4"><Button onClick={onClose} type="button" variant="outline">Cancel</Button><Button disabled={createIssue.isPending} type="submit">Create issue</Button></div>
       </form>
     </aside>

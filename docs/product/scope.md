@@ -7,7 +7,7 @@ Define the verified scope of this Jira-like project and issue-management MVP.
 ## Included — VERIFIED
 
 - Account registration, login, refresh-token rotation, logout, and authenticated identity retrieval.
-- User-owned workspaces with `OWNER`, `ADMIN`, and `MEMBER` memberships.
+- User-owned workspaces with `OWNER`, `ADMIN`, and `MEMBER` memberships, managed by email from the web client.
 - Project creation, retrieval, update, listing, and archival within a workspace.
 - Issues with project-scoped keys, assignment, a fixed three-state workflow, comments, history, and optimistic concurrency protection.
 - Epics, one active sprint per project, and completed-sprint lifecycle.
@@ -16,7 +16,7 @@ Define the verified scope of this Jira-like project and issue-management MVP.
 
 ## Not currently in scope — VERIFIED
 
-- Workspace deletion, project restoration, user administration/blocking UI, and membership-management UI.
+- Workspace deletion, project restoration, user administration/blocking UI, and member invitations for unregistered emails.
 - Issue deletion, comment editing/deletion, attachments, labels, estimates, releases, and configurable workflows.
 - Server-side issue search, filtering, sorting, or pagination. The board has client-side status/priority UI filters only.
 - WebSocket notification delivery; the client polls every five seconds.

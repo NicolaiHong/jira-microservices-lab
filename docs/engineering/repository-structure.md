@@ -12,4 +12,4 @@ Map top-level repository areas to responsibilities.
 | `docs/` | Canonical product, architecture, contract, and workflow documentation |
 | `scripts/` | Health, smoke, and CodeGraphContext helpers |
 | `tests/` | Focused cross-project tests currently present |
-| `diagrams/` | Existing source/image diagrams; see `docs/diagrams/README.md` |
+| `diagrams/` | Draw.io source and exported topology/event-flow images; see `docs/diagrams/README.md` |

@@ -1,175 +1,234 @@
-<mxfile host="Electron" modified="2026-07-25T12:00:00.000Z" agent="Codex" version="24.7.17" type="device">
-  <diagram id="current-communication" name="01 - Current Communication">
+<mxfile host="Electron" modified="2026-09-13T12:00:00.000Z" agent="Claude Code" version="24.7.17" type="device">
+  <diagram id="current-communication" name="01 - Service Communication">
     <mxGraphModel dx="1800" dy="1050" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1920" pageHeight="1080" math="0" shadow="0">
       <root>
         <mxCell id="0"/>
         <mxCell id="1" parent="0"/>
 
-        <mxCell id="title" value="Jira-like Microservices — Current Service Communication" style="text;html=1;align=left;verticalAlign=middle;fontSize=26;fontStyle=1;fontColor=#1F2937;" vertex="1" parent="1">
-          <mxGeometry x="40" y="25" width="1700" height="40" as="geometry"/>
+        <mxCell id="title" value="Jira-like Microservices — Service Communication" style="text;html=1;align=left;verticalAlign=middle;fontSize=26;fontStyle=1;fontColor=#1F2937;" vertex="1" parent="1">
+          <mxGeometry x="40" y="25" width="1800" height="40" as="geometry"/>
         </mxCell>
-        <mxCell id="subtitle" value="Nét xanh: HTTP đồng bộ · Nét xanh lá đứt: health polling · Nét tím: service-owned persistence" style="text;html=1;align=left;verticalAlign=middle;fontSize=14;fontColor=#4B5563;" vertex="1" parent="1">
-          <mxGeometry x="40" y="65" width="1700" height="30" as="geometry"/>
+        <mxCell id="subtitle" value="Nét xanh: HTTP đồng bộ · Nét cam: Kafka (issue.events.v1) · Nét tím: persistence thuộc service · Nét xanh lá: Redis" style="text;html=1;align=left;verticalAlign=middle;fontSize=14;fontColor=#4B5563;" vertex="1" parent="1">
+          <mxGeometry x="40" y="65" width="1800" height="30" as="geometry"/>
         </mxCell>
 
         <mxCell id="clients-zone" value="CLIENTS" style="swimlane;html=1;horizontal=1;startSize=32;rounded=1;fillColor=#F8FAFC;strokeColor=#CBD5E1;fontColor=#475569;fontStyle=1;dashed=1;" vertex="1" parent="1">
-          <mxGeometry x="40" y="120" width="270" height="730" as="geometry"/>
+          <mxGeometry x="40" y="120" width="250" height="740" as="geometry"/>
         </mxCell>
-        <mxCell id="edge-zone" value="API EDGE &amp; RATE LIMIT" style="swimlane;html=1;horizontal=1;startSize=32;rounded=1;fillColor=#EFF6FF;strokeColor=#93C5FD;fontColor=#1D4ED8;fontStyle=1;" vertex="1" parent="1">
-          <mxGeometry x="380" y="120" width="300" height="730" as="geometry"/>
+        <mxCell id="edge-zone" value="API EDGE" style="swimlane;html=1;horizontal=1;startSize=32;rounded=1;fillColor=#EFF6FF;strokeColor=#93C5FD;fontColor=#1D4ED8;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="330" y="120" width="290" height="740" as="geometry"/>
         </mxCell>
-        <mxCell id="services-zone" value="DOMAIN SERVICES" style="swimlane;html=1;horizontal=1;startSize=32;rounded=1;fillColor=#F8FAFC;strokeColor=#CBD5E1;fontColor=#475569;fontStyle=1;" vertex="1" parent="1">
-          <mxGeometry x="770" y="120" width="330" height="730" as="geometry"/>
+        <mxCell id="services-zone" value="DOMAIN SERVICES (internal network)" style="swimlane;html=1;horizontal=1;startSize=32;rounded=1;fillColor=#F8FAFC;strokeColor=#CBD5E1;fontColor=#475569;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="660" y="120" width="360" height="740" as="geometry"/>
         </mxCell>
-        <mxCell id="data-zone" value="SERVICE-OWNED DATA" style="swimlane;html=1;horizontal=1;startSize=32;rounded=1;fillColor=#FAF5FF;strokeColor=#C4B5FD;fontColor=#6D28D9;fontStyle=1;" vertex="1" parent="1">
-          <mxGeometry x="1190" y="120" width="550" height="730" as="geometry"/>
-        </mxCell>
-
-        <mxCell id="web" value="&lt;b&gt;Next.js Web Client&lt;/b&gt;&lt;br&gt;localhost:3001&lt;br&gt;&lt;font color=&quot;#64748B&quot;&gt;JSON + Bearer JWT&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#64748B;fontColor=#0F172A;spacing=10;" vertex="1" parent="1">
-          <mxGeometry x="75" y="180" width="200" height="90" as="geometry"/>
-        </mxCell>
-        <mxCell id="local-storage" value="&lt;b&gt;Browser localStorage&lt;/b&gt;&lt;br&gt;accessToken&lt;br&gt;refreshToken" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=12;fillColor=#F1F5F9;strokeColor=#94A3B8;fontColor=#334155;" vertex="1" parent="1">
-          <mxGeometry x="95" y="340" width="160" height="90" as="geometry"/>
-        </mxCell>
-        <mxCell id="api-client" value="&lt;b&gt;PowerShell / Postman&lt;/b&gt;&lt;br&gt;Manual API testing&lt;br&gt;&lt;font color=&quot;#64748B&quot;&gt;JSON + Bearer JWT&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#64748B;fontColor=#0F172A;spacing=10;" vertex="1" parent="1">
-          <mxGeometry x="75" y="560" width="200" height="90" as="geometry"/>
+        <mxCell id="data-zone" value="SERVICE-OWNED DATA &amp; MESSAGING" style="swimlane;html=1;horizontal=1;startSize=32;rounded=1;fillColor=#FAF5FF;strokeColor=#C4B5FD;fontColor=#6D28D9;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="1080" y="120" width="800" height="740" as="geometry"/>
         </mxCell>
 
-        <mxCell id="gateway" value="&lt;b&gt;API Gateway · NestJS&lt;/b&gt;&lt;br&gt;localhost:3005 (local)&lt;br&gt;&lt;br&gt;• Route public APIs&lt;br&gt;• Validate JWT locally&lt;br&gt;• Forward user context&lt;br&gt;• Aggregate service health" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#2563EB;strokeWidth=2;fontColor=#1E3A8A;spacing=14;fontSize=15;" vertex="1" parent="1">
-          <mxGeometry x="420" y="245" width="220" height="255" as="geometry"/>
+        <mxCell id="web" value="&lt;b&gt;Next.js Web Client&lt;/b&gt;&lt;br&gt;localhost:3001&lt;br&gt;&lt;font color=&quot;#64748B&quot;&gt;Bearer JWT · poll notifications 5s&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#64748B;fontColor=#0F172A;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="65" y="250" width="200" height="100" as="geometry"/>
         </mxCell>
-        <mxCell id="redis" value="&lt;b&gt;Redis&lt;/b&gt;&lt;br&gt;localhost:6379&lt;br&gt;&lt;font color=&quot;#64748B&quot;&gt;Auth rate-limit counters&lt;/font&gt;" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=14;fillColor=#ECFDF5;strokeColor=#10B981;fontColor=#065F46;" vertex="1" parent="1">
-          <mxGeometry x="440" y="650" width="180" height="95" as="geometry"/>
-        </mxCell>
-
-        <mxCell id="iam" value="&lt;b&gt;IAM Service&lt;/b&gt;&lt;br&gt;Spring Boot · :8081&lt;br&gt;&lt;font color=&quot;#64748B&quot;&gt;Register · Login · JWT · Roles&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0EA5E9;strokeWidth=2;fontColor=#0C4A6E;spacing=10;" vertex="1" parent="1">
-          <mxGeometry x="810" y="175" width="250" height="90" as="geometry"/>
-        </mxCell>
-        <mxCell id="project" value="&lt;b&gt;Project Service&lt;/b&gt;&lt;br&gt;ASP.NET Core · :8082&lt;br&gt;&lt;font color=&quot;#64748B&quot;&gt;Workspaces · Members · Projects&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0EA5E9;strokeWidth=2;fontColor=#0C4A6E;spacing=10;" vertex="1" parent="1">
-          <mxGeometry x="810" y="340" width="250" height="90" as="geometry"/>
-        </mxCell>
-        <mxCell id="issue" value="&lt;b&gt;Issue Service&lt;/b&gt;&lt;br&gt;NestJS · :8083&lt;br&gt;&lt;font color=&quot;#64748B&quot;&gt;Current: health skeleton&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#94A3B8;strokeWidth=2;fontColor=#334155;spacing=10;" vertex="1" parent="1">
-          <mxGeometry x="810" y="505" width="250" height="90" as="geometry"/>
-        </mxCell>
-        <mxCell id="notification" value="&lt;b&gt;Notification Service&lt;/b&gt;&lt;br&gt;Go · :8084&lt;br&gt;&lt;font color=&quot;#64748B&quot;&gt;Current: health skeleton&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#94A3B8;strokeWidth=2;fontColor=#334155;spacing=10;" vertex="1" parent="1">
-          <mxGeometry x="810" y="670" width="250" height="90" as="geometry"/>
+        <mxCell id="api-client" value="&lt;b&gt;Smoke scripts&lt;/b&gt;&lt;br&gt;scripts/smoke-full-flow&lt;br&gt;&lt;font color=&quot;#64748B&quot;&gt;.ps1 · .sh&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#64748B;fontColor=#0F172A;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="65" y="560" width="200" height="90" as="geometry"/>
         </mxCell>
 
-        <mxCell id="iam-db" value="&lt;b&gt;iam_db&lt;/b&gt;&lt;br&gt;users&lt;br&gt;user_roles&lt;br&gt;refresh_tokens" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#F3E8FF;strokeColor=#8B5CF6;fontColor=#4C1D95;" vertex="1" parent="1">
-          <mxGeometry x="1240" y="165" width="175" height="115" as="geometry"/>
-        </mxCell>
-        <mxCell id="project-db" value="&lt;b&gt;project_db&lt;/b&gt;&lt;br&gt;workspaces&lt;br&gt;workspace_members&lt;br&gt;projects" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#F3E8FF;strokeColor=#8B5CF6;fontColor=#4C1D95;" vertex="1" parent="1">
-          <mxGeometry x="1240" y="330" width="175" height="115" as="geometry"/>
-        </mxCell>
-        <mxCell id="data-rule" value="&lt;b&gt;Không chia sẻ database&lt;/b&gt;&lt;br&gt;&lt;br&gt;IAM chỉ đọc/ghi iam_db.&lt;br&gt;Project chỉ đọc/ghi project_db.&lt;br&gt;Service khác muốn lấy dữ liệu phải gọi API hoặc nhận event." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#C4B5FD;dashed=1;fontColor=#5B21B6;spacing=14;align=left;" vertex="1" parent="1">
-          <mxGeometry x="1480" y="200" width="220" height="190" as="geometry"/>
-        </mxCell>
-        <mxCell id="future-link" value="Xem page &lt;b&gt;02 - Planned Event Flow&lt;/b&gt; để thấy luồng Issue → Redpanda/Kafka → Notification." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF7ED;strokeColor=#F97316;dashed=1;fontColor=#9A3412;spacing=12;" vertex="1" parent="1">
-          <mxGeometry x="1240" y="570" width="460" height="100" as="geometry"/>
-        </mxCell>
-        <mxCell id="cors-note" value="Lưu ý hiện tại: Web → Gateway cần bật CORS trước khi browser login/dashboard hoạt động end-to-end." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFBEB;strokeColor=#F59E0B;fontColor=#92400E;spacing=10;" vertex="1" parent="1">
-          <mxGeometry x="230" y="900" width="1320" height="60" as="geometry"/>
+        <mxCell id="gateway" value="&lt;b&gt;API Gateway · NestJS&lt;/b&gt;&lt;br&gt;localhost:3000&lt;br&gt;&lt;br&gt;&lt;div style=&quot;text-align:left&quot;&gt;• Public routes /api/*&lt;br&gt;• Verify JWT (issuer, audience)&lt;br&gt;• Auth rate limit (Redis)&lt;br&gt;• Correlation ID&lt;br&gt;• Canonical error envelope&lt;br&gt;• Downstream timeouts&lt;br&gt;• CORS cho web client&lt;br&gt;• Aggregate /health&lt;/div&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#2563EB;strokeWidth=2;fontColor=#1E3A8A;spacing=14;fontSize=14;" vertex="1" parent="1">
+          <mxGeometry x="360" y="170" width="220" height="600" as="geometry"/>
         </mxCell>
 
-        <mxCell id="e-web-storage" value="save / read session" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748B;endArrow=block;endFill=1;fontColor=#475569;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="web" target="local-storage">
-          <mxGeometry x="0" y="-14" relative="1" as="geometry"/>
+        <mxCell id="iam" value="&lt;b&gt;IAM Service&lt;/b&gt;&lt;br&gt;Spring Boot · :8081&lt;br&gt;&lt;font color=&quot;#64748B&quot;&gt;/auth/* register · login · refresh · logout · me&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0EA5E9;strokeWidth=2;fontColor=#0C4A6E;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="680" y="160" width="320" height="110" as="geometry"/>
         </mxCell>
-        <mxCell id="e-web-gateway" value="HTTP REST" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#2563EB;strokeWidth=2;endArrow=block;endFill=1;fontColor=#1E3A8A;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="web" target="gateway">
-          <mxGeometry x="0" y="-14" relative="1" as="geometry"/>
+        <mxCell id="issue" value="&lt;b&gt;Issue Service&lt;/b&gt;&lt;br&gt;NestJS · :8083&lt;br&gt;&lt;font color=&quot;#64748B&quot;&gt;issues · comments · history · transitions&lt;br&gt;sprints · epics · outbox publisher&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0EA5E9;strokeWidth=2;fontColor=#0C4A6E;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="680" y="320" width="320" height="130" as="geometry"/>
         </mxCell>
-        <mxCell id="e-api-gateway" value="HTTP REST" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#2563EB;strokeWidth=2;endArrow=block;endFill=1;fontColor=#1E3A8A;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="api-client" target="gateway">
-          <mxGeometry x="0" y="14" relative="1" as="geometry"/>
+        <mxCell id="project" value="&lt;b&gt;Project Service&lt;/b&gt;&lt;br&gt;ASP.NET Core · :8082&lt;br&gt;&lt;font color=&quot;#64748B&quot;&gt;workspaces · members · projects&lt;br&gt;/internal/projects/{id}/access-context&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0EA5E9;strokeWidth=2;fontColor=#0C4A6E;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="680" y="500" width="320" height="110" as="geometry"/>
+        </mxCell>
+        <mxCell id="notification" value="&lt;b&gt;Notification Service&lt;/b&gt;&lt;br&gt;Go · :8084&lt;br&gt;&lt;font color=&quot;#64748B&quot;&gt;Kafka consumer · list · read · read-all&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0EA5E9;strokeWidth=2;fontColor=#0C4A6E;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="680" y="680" width="320" height="130" as="geometry"/>
         </mxCell>
 
-        <mxCell id="e-gateway-iam" value="register/login ↔ JWT tokens" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#2563EB;strokeWidth=2;startArrow=block;startFill=1;endArrow=block;endFill=1;fontColor=#1E3A8A;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="gateway" target="iam">
-          <mxGeometry x="0" y="-18" relative="1" as="geometry"/>
+        <mxCell id="iam-db" value="&lt;b&gt;iam_db&lt;/b&gt;&lt;br&gt;users · user_roles&lt;br&gt;refresh_tokens" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#F3E8FF;strokeColor=#8B5CF6;fontColor=#4C1D95;" vertex="1" parent="1">
+          <mxGeometry x="1130" y="160" width="220" height="110" as="geometry"/>
         </mxCell>
-        <mxCell id="e-gateway-project" value="workspace/project API ↔ JSON" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#2563EB;strokeWidth=2;startArrow=block;startFill=1;endArrow=block;endFill=1;fontColor=#1E3A8A;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="gateway" target="project">
-          <mxGeometry x="0" y="-18" relative="1" as="geometry"/>
+        <mxCell id="issue-db" value="&lt;b&gt;issue_db&lt;/b&gt;&lt;br&gt;issues · issue_comments · issue_history&lt;br&gt;project_issue_sequences · sprints · epics&lt;br&gt;outbox_events" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=12;fillColor=#F3E8FF;strokeColor=#8B5CF6;fontColor=#4C1D95;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="1130" y="305" width="250" height="110" as="geometry"/>
         </mxCell>
-        <mxCell id="e-gateway-issue" value="GET /health" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#16A34A;strokeWidth=2;dashed=1;dashPattern=6 4;endArrow=open;endFill=0;fontColor=#166534;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.72;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="gateway" target="issue">
-          <mxGeometry x="0" y="-16" relative="1" as="geometry">
+        <mxCell id="project-db" value="&lt;b&gt;project_db&lt;/b&gt;&lt;br&gt;workspaces · workspace_members&lt;br&gt;projects" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#F3E8FF;strokeColor=#8B5CF6;fontColor=#4C1D95;" vertex="1" parent="1">
+          <mxGeometry x="1130" y="500" width="220" height="110" as="geometry"/>
+        </mxCell>
+        <mxCell id="redis" value="&lt;b&gt;Redis&lt;/b&gt;&lt;br&gt;rate-limit counters (Gateway)&lt;br&gt;notification:* (Notification)" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#ECFDF5;strokeColor=#10B981;fontColor=#065F46;" vertex="1" parent="1">
+          <mxGeometry x="1130" y="690" width="220" height="110" as="geometry"/>
+        </mxCell>
+        <mxCell id="redpanda" value="&lt;b&gt;Redpanda / Kafka&lt;/b&gt;&lt;br&gt;issue.events.v1&lt;br&gt;&lt;font color=&quot;#9A3412&quot;&gt;DLQ: issue.events.v1.dlq.v1&lt;/font&gt;" style="shape=hexagon;perimeter=hexagonPerimeter2;whiteSpace=wrap;html=1;fixedSize=1;fillColor=#FFF7ED;strokeColor=#F97316;strokeWidth=2;fontColor=#9A3412;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="1480" y="380" width="280" height="120" as="geometry"/>
+        </mxCell>
+        <mxCell id="data-rule" value="&lt;b&gt;Không chia sẻ database&lt;/b&gt;&lt;br&gt;&lt;br&gt;Mỗi service chỉ đọc/ghi store của mình.&lt;br&gt;Cần dữ liệu service khác → gọi internal HTTP hoặc consume event.&lt;br&gt;Redis dùng chung container nhưng tách key prefix theo service." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#C4B5FD;dashed=1;fontColor=#5B21B6;spacing=14;align=left;" vertex="1" parent="1">
+          <mxGeometry x="1430" y="160" width="410" height="170" as="geometry"/>
+        </mxCell>
+        <mxCell id="internal-note" value="Internal HTTP: domain service chỉ expose port trong Docker network; mọi call nội bộ gửi &lt;b&gt;x-internal-service-secret&lt;/b&gt; · &lt;b&gt;x-authenticated-user-id&lt;/b&gt; · &lt;b&gt;x-correlation-id&lt;/b&gt;. Chi tiết luồng event: page &lt;b&gt;02 - Issue Event Flow&lt;/b&gt;." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFBEB;strokeColor=#F59E0B;fontColor=#92400E;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="40" y="950" width="1840" height="60" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e-web-gateway" value="HTTP REST" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#2563EB;strokeWidth=2;endArrow=block;endFill=1;fontColor=#1E3A8A;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.2167;entryDx=0;entryDy=0;" edge="1" parent="1" source="web" target="gateway">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e-api-gateway" value="HTTP REST" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#2563EB;strokeWidth=2;endArrow=block;endFill=1;fontColor=#1E3A8A;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.725;entryDx=0;entryDy=0;" edge="1" parent="1" source="api-client" target="gateway">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e-gateway-iam" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#2563EB;strokeWidth=2;endArrow=block;endFill=1;exitX=1;exitY=0.075;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="gateway" target="iam">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e-gateway-issue" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#2563EB;strokeWidth=2;endArrow=block;endFill=1;exitX=1;exitY=0.3583;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="gateway" target="issue">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e-gateway-project" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#2563EB;strokeWidth=2;endArrow=block;endFill=1;exitX=1;exitY=0.6417;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="gateway" target="project">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e-gateway-notification" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#2563EB;strokeWidth=2;endArrow=block;endFill=1;exitX=1;exitY=0.9583;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="gateway" target="notification">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e-gateway-redis" value="INCR + EXPIRE (auth rate limit)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#10B981;strokeWidth=2;endArrow=block;endFill=1;fontColor=#047857;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=-1;" edge="1" parent="1" source="gateway" target="redis">
+          <mxGeometry relative="1" as="geometry">
             <Array as="points">
-              <mxPoint x="720" y="550"/>
+              <mxPoint x="470" y="900"/>
+              <mxPoint x="1240" y="900"/>
             </Array>
           </mxGeometry>
         </mxCell>
-        <mxCell id="e-gateway-notification" value="GET /health" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#16A34A;strokeWidth=2;dashed=1;dashPattern=6 4;endArrow=open;endFill=0;fontColor=#166534;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.88;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="gateway" target="notification">
-          <mxGeometry x="0" y="16" relative="1" as="geometry">
-            <Array as="points">
-              <mxPoint x="720" y="715"/>
-            </Array>
-          </mxGeometry>
+
+        <mxCell id="e-issue-project" value="access-context" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#2563EB;strokeWidth=2;endArrow=block;endFill=1;fontColor=#1E3A8A;labelBackgroundColor=#FFFFFF;exitX=0.35;exitY=1;exitDx=0;exitDy=0;entryX=0.35;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="issue" target="project">
+          <mxGeometry relative="1" as="geometry"/>
         </mxCell>
-        <mxCell id="e-gateway-redis" value="INCR + TTL" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#10B981;strokeWidth=2;endArrow=block;endFill=1;fontColor=#047857;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="gateway" target="redis">
-          <mxGeometry x="0" y="-14" relative="1" as="geometry"/>
+        <mxCell id="e-notification-project" value="access-context / recipient" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#2563EB;strokeWidth=2;endArrow=block;endFill=1;fontColor=#1E3A8A;labelBackgroundColor=#FFFFFF;exitX=0.35;exitY=0;exitDx=0;exitDy=0;entryX=0.35;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="notification" target="project">
+          <mxGeometry relative="1" as="geometry"/>
         </mxCell>
 
-        <mxCell id="e-iam-db" value="JPA + Flyway" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#8B5CF6;strokeWidth=2;endArrow=block;endFill=1;fontColor=#5B21B6;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="iam" target="iam-db">
-          <mxGeometry x="0" y="-14" relative="1" as="geometry"/>
+        <mxCell id="e-iam-db" value="JPA + Flyway" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#8B5CF6;strokeWidth=2;endArrow=block;endFill=1;fontColor=#5B21B6;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="iam" target="iam-db">
+          <mxGeometry relative="1" as="geometry"/>
         </mxCell>
-        <mxCell id="e-project-db" value="EF Core" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#8B5CF6;strokeWidth=2;endArrow=block;endFill=1;fontColor=#5B21B6;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="project" target="project-db">
-          <mxGeometry x="0" y="-14" relative="1" as="geometry"/>
+        <mxCell id="e-issue-db" value="1 transaction" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#8B5CF6;strokeWidth=2;endArrow=block;endFill=1;fontColor=#5B21B6;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.2692;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="issue" target="issue-db">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e-project-db" value="EF Core" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#8B5CF6;strokeWidth=2;endArrow=block;endFill=1;fontColor=#5B21B6;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="project" target="project-db">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e-notification-redis" value="pipeline" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#10B981;strokeWidth=2;endArrow=block;endFill=1;fontColor=#047857;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="notification" target="redis">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e-issue-kafka" value="outbox publisher → produce" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#F97316;strokeWidth=2;endArrow=block;endFill=1;fontColor=#9A3412;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.9231;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="issue" target="redpanda">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="e-kafka-notification" value="consume · group notification-service-v1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#F97316;strokeWidth=2;endArrow=block;endFill=1;fontColor=#9A3412;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.8;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="redpanda" target="notification">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1620" y="650"/>
+              <mxPoint x="936" y="650"/>
+            </Array>
+          </mxGeometry>
         </mxCell>
       </root>
     </mxGraphModel>
   </diagram>
 
-  <diagram id="planned-event-flow" name="02 - Planned Event Flow">
+  <diagram id="issue-event-flow" name="02 - Issue Event Flow">
     <mxGraphModel dx="1700" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1920" pageHeight="1080" math="0" shadow="0">
       <root>
         <mxCell id="p0"/>
         <mxCell id="p1" parent="p0"/>
 
-        <mxCell id="p-title" value="Planned Async Flow — Issue Events to Notifications" style="text;html=1;align=left;verticalAlign=middle;fontSize=26;fontStyle=1;fontColor=#1F2937;" vertex="1" parent="p1">
-          <mxGeometry x="60" y="45" width="1650" height="40" as="geometry"/>
+        <mxCell id="p-title" value="Issue Events → Notifications (Transactional Outbox + Kafka)" style="text;html=1;align=left;verticalAlign=middle;fontSize=26;fontStyle=1;fontColor=#1F2937;" vertex="1" parent="p1">
+          <mxGeometry x="60" y="30" width="1800" height="40" as="geometry"/>
         </mxCell>
-        <mxCell id="p-subtitle" value="Toàn bộ luồng màu cam đang là thiết kế dự kiến; source hiện tại chưa publish hoặc consume Kafka events." style="text;html=1;align=left;verticalAlign=middle;fontSize=14;fontColor=#4B5563;" vertex="1" parent="p1">
-          <mxGeometry x="60" y="85" width="1650" height="30" as="geometry"/>
-        </mxCell>
-
-        <mxCell id="p-gateway" value="&lt;b&gt;API Gateway&lt;/b&gt;&lt;br&gt;Authenticated issue request" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#2563EB;strokeWidth=2;fontColor=#1E3A8A;spacing=12;" vertex="1" parent="p1">
-          <mxGeometry x="80" y="330" width="220" height="100" as="geometry"/>
-        </mxCell>
-        <mxCell id="p-issue" value="&lt;b&gt;Issue Service&lt;/b&gt;&lt;br&gt;Persist issue state&lt;br&gt;Publish domain event" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF7ED;strokeColor=#F97316;strokeWidth=2;dashed=1;fontColor=#9A3412;spacing=12;" vertex="1" parent="p1">
-          <mxGeometry x="400" y="320" width="240" height="120" as="geometry"/>
-        </mxCell>
-        <mxCell id="p-issue-db" value="&lt;b&gt;issue_db&lt;/b&gt;&lt;br&gt;issues · comments · history" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#F8FAFC;strokeColor=#94A3B8;dashed=1;fontColor=#475569;" vertex="1" parent="p1">
-          <mxGeometry x="440" y="570" width="160" height="100" as="geometry"/>
-        </mxCell>
-        <mxCell id="p-redpanda" value="&lt;b&gt;Redpanda / Kafka&lt;/b&gt;&lt;br&gt;issue.created&lt;br&gt;issue.updated" style="shape=hexagon;perimeter=hexagonPerimeter2;whiteSpace=wrap;html=1;fixedSize=1;fillColor=#FFF7ED;strokeColor=#F97316;strokeWidth=2;fontColor=#9A3412;spacing=10;" vertex="1" parent="p1">
-          <mxGeometry x="760" y="320" width="240" height="120" as="geometry"/>
-        </mxCell>
-        <mxCell id="p-notification" value="&lt;b&gt;Notification Service&lt;/b&gt;&lt;br&gt;Consume event&lt;br&gt;Build user notification" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF7ED;strokeColor=#F97316;strokeWidth=2;dashed=1;fontColor=#9A3412;spacing=12;" vertex="1" parent="p1">
-          <mxGeometry x="1120" y="320" width="240" height="120" as="geometry"/>
-        </mxCell>
-        <mxCell id="p-notification-db" value="&lt;b&gt;notification_db&lt;/b&gt;&lt;br&gt;notifications · delivery state" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#F8FAFC;strokeColor=#94A3B8;dashed=1;fontColor=#475569;" vertex="1" parent="p1">
-          <mxGeometry x="1160" y="570" width="160" height="100" as="geometry"/>
-        </mxCell>
-        <mxCell id="p-web" value="&lt;b&gt;Web Client&lt;/b&gt;&lt;br&gt;Receive notification&lt;br&gt;WebSocket / polling" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF7ED;strokeColor=#F97316;strokeWidth=2;dashed=1;fontColor=#9A3412;spacing=12;" vertex="1" parent="p1">
-          <mxGeometry x="1480" y="320" width="220" height="120" as="geometry"/>
-        </mxCell>
-        <mxCell id="p-note" value="Điểm chính: Issue Service không cần chờ Notification xử lý xong. Kafka giữ event và tách rời vòng đời hai service." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFBEB;strokeColor=#F59E0B;fontColor=#92400E;fontStyle=1;spacing=12;" vertex="1" parent="p1">
-          <mxGeometry x="470" y="780" width="850" height="70" as="geometry"/>
+        <mxCell id="p-subtitle" value="Nét xanh: HTTP đồng bộ · Nét cam: Kafka · Nét tím: ghi DB/Redis · Nét đỏ đứt: nhánh lỗi · Event types: issue.created · issue.updated · issue.assigned · issue.transitioned · issue.commented" style="text;html=1;align=left;verticalAlign=middle;fontSize=14;fontColor=#4B5563;" vertex="1" parent="p1">
+          <mxGeometry x="60" y="70" width="1800" height="30" as="geometry"/>
         </mxCell>
 
-        <mxCell id="p-e-gateway-issue" value="HTTP POST /api/issues" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#2563EB;strokeWidth=2;endArrow=block;endFill=1;fontColor=#1E3A8A;labelBackgroundColor=#FFFFFF;" edge="1" parent="p1" source="p-gateway" target="p-issue">
-          <mxGeometry x="0" y="-16" relative="1" as="geometry"/>
+        <mxCell id="p-gateway" value="&lt;b&gt;1 · API Gateway&lt;/b&gt;&lt;br&gt;Issue command /api/...&lt;br&gt;&lt;font color=&quot;#64748B&quot;&gt;JWT · correlation ID&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#DBEAFE;strokeColor=#2563EB;strokeWidth=2;fontColor=#1E3A8A;spacing=12;" vertex="1" parent="p1">
+          <mxGeometry x="60" y="170" width="250" height="140" as="geometry"/>
         </mxCell>
-        <mxCell id="p-e-issue-db" value="transaction" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748B;dashed=1;endArrow=block;endFill=0;fontColor=#475569;labelBackgroundColor=#FFFFFF;" edge="1" parent="p1" source="p-issue" target="p-issue-db">
-          <mxGeometry x="0" y="-14" relative="1" as="geometry"/>
+        <mxCell id="p-issue" value="&lt;b&gt;2 · Issue Service use case&lt;/b&gt;&lt;br&gt;Check project access (sync)&lt;br&gt;Enforce domain invariants&lt;br&gt;&lt;font color=&quot;#64748B&quot;&gt;Project down → 503&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0EA5E9;strokeWidth=2;fontColor=#0C4A6E;spacing=12;" vertex="1" parent="p1">
+          <mxGeometry x="400" y="170" width="280" height="140" as="geometry"/>
         </mxCell>
-        <mxCell id="p-e-issue-kafka" value="publish event" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#F97316;strokeWidth=2;dashed=1;dashPattern=6 4;endArrow=block;endFill=0;fontColor=#9A3412;labelBackgroundColor=#FFFFFF;" edge="1" parent="p1" source="p-issue" target="p-redpanda">
-          <mxGeometry x="0" y="-16" relative="1" as="geometry"/>
+        <mxCell id="p-issue-db" value="&lt;b&gt;3 · issue_db — 1 transaction&lt;/b&gt;&lt;br&gt;issue / comment&lt;br&gt;issue_history&lt;br&gt;outbox_events (pending)" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#F3E8FF;strokeColor=#8B5CF6;fontColor=#4C1D95;" vertex="1" parent="p1">
+          <mxGeometry x="770" y="160" width="280" height="160" as="geometry"/>
         </mxCell>
-        <mxCell id="p-e-kafka-notification" value="consume event" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#F97316;strokeWidth=2;dashed=1;dashPattern=6 4;endArrow=block;endFill=0;fontColor=#9A3412;labelBackgroundColor=#FFFFFF;" edge="1" parent="p1" source="p-redpanda" target="p-notification">
-          <mxGeometry x="0" y="-16" relative="1" as="geometry"/>
+        <mxCell id="p-outbox" value="&lt;b&gt;4 · Outbox publisher&lt;/b&gt;&lt;br&gt;poll 2s · batch 50&lt;br&gt;message key = aggregateId&lt;br&gt;ack → mark published&lt;br&gt;&lt;font color=&quot;#64748B&quot;&gt;broker lỗi → giữ pending, retry&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0EA5E9;strokeWidth=2;fontColor=#0C4A6E;spacing=12;" vertex="1" parent="p1">
+          <mxGeometry x="1140" y="170" width="280" height="140" as="geometry"/>
         </mxCell>
-        <mxCell id="p-e-notification-db" value="persist delivery state" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#64748B;dashed=1;endArrow=block;endFill=0;fontColor=#475569;labelBackgroundColor=#FFFFFF;" edge="1" parent="p1" source="p-notification" target="p-notification-db">
-          <mxGeometry x="0" y="-14" relative="1" as="geometry"/>
+        <mxCell id="p-redpanda" value="&lt;b&gt;5 · Redpanda / Kafka&lt;/b&gt;&lt;br&gt;issue.events.v1&lt;br&gt;&lt;font color=&quot;#9A3412&quot;&gt;envelope schemaVersion 1&lt;/font&gt;" style="shape=hexagon;perimeter=hexagonPerimeter2;whiteSpace=wrap;html=1;fixedSize=1;fillColor=#FFF7ED;strokeColor=#F97316;strokeWidth=2;fontColor=#9A3412;spacing=10;" vertex="1" parent="p1">
+          <mxGeometry x="1510" y="170" width="300" height="140" as="geometry"/>
         </mxCell>
-        <mxCell id="p-e-notification-web" value="push / polling" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#F97316;strokeWidth=2;dashed=1;dashPattern=6 4;endArrow=block;endFill=0;fontColor=#9A3412;labelBackgroundColor=#FFFFFF;" edge="1" parent="p1" source="p-notification" target="p-web">
-          <mxGeometry x="0" y="-16" relative="1" as="geometry"/>
+
+        <mxCell id="p-project" value="&lt;b&gt;Project Service&lt;/b&gt;&lt;br&gt;GET /internal/projects/{id}/access-context" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0EA5E9;strokeWidth=2;fontColor=#0C4A6E;spacing=10;" vertex="1" parent="p1">
+          <mxGeometry x="770" y="400" width="280" height="90" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="p-consumer" value="&lt;b&gt;6 · Notification consumer&lt;/b&gt;&lt;br&gt;group notification-service-v1&lt;br&gt;validate envelope&lt;br&gt;bỏ actor · dedupe recipientUserIds&lt;br&gt;&lt;font color=&quot;#64748B&quot;&gt;xử lý tuần tự từng record&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0EA5E9;strokeWidth=2;fontColor=#0C4A6E;spacing=12;" vertex="1" parent="p1">
+          <mxGeometry x="1510" y="560" width="300" height="150" as="geometry"/>
+        </mxCell>
+        <mxCell id="p-recheck" value="&lt;b&gt;7 · Recheck quyền từng recipient&lt;/b&gt;&lt;br&gt;200 → eligible&lt;br&gt;404 PROJECT_NOT_FOUND → skip&lt;br&gt;&lt;font color=&quot;#64748B&quot;&gt;lỗi khác → retry (tối đa 5 lần)&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0EA5E9;strokeWidth=2;fontColor=#0C4A6E;spacing=12;" vertex="1" parent="p1">
+          <mxGeometry x="1140" y="560" width="280" height="150" as="geometry"/>
+        </mxCell>
+        <mxCell id="p-redis" value="&lt;b&gt;8 · Redis pipeline&lt;/b&gt;&lt;br&gt;notification:{userId}:{id}&lt;br&gt;notifications:user:{userId}&lt;br&gt;&lt;font color=&quot;#065F46&quot;&gt;id = sha256(eventId:userId) → idempotent&lt;/font&gt;" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;fillColor=#ECFDF5;strokeColor=#10B981;fontColor=#065F46;fontSize=11;" vertex="1" parent="p1">
+          <mxGeometry x="770" y="550" width="280" height="170" as="geometry"/>
+        </mxCell>
+        <mxCell id="p-web" value="&lt;b&gt;Web Client&lt;/b&gt;&lt;br&gt;GET /api/notifications&lt;br&gt;poll 5s qua Gateway → Notification API&lt;br&gt;&lt;font color=&quot;#64748B&quot;&gt;read · read-all&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#64748B;strokeWidth=2;fontColor=#0F172A;spacing=12;" vertex="1" parent="p1">
+          <mxGeometry x="400" y="560" width="280" height="150" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="p-dlq" value="&lt;b&gt;issue.events.v1.dlq.v1&lt;/b&gt;&lt;br&gt;original message&lt;br&gt;+ header failure-reason" style="shape=hexagon;perimeter=hexagonPerimeter2;whiteSpace=wrap;html=1;fixedSize=1;fillColor=#FEF2F2;strokeColor=#DC2626;strokeWidth=2;dashed=1;fontColor=#991B1B;spacing=10;" vertex="1" parent="p1">
+          <mxGeometry x="1510" y="800" width="300" height="110" as="geometry"/>
+        </mxCell>
+        <mxCell id="p-commit" value="&lt;b&gt;9 · Commit offset&lt;/b&gt;&lt;br&gt;chỉ sau khi lưu Redis hoặc ghi DLQ&lt;br&gt;&lt;font color=&quot;#64748B&quot;&gt;không fetch record sau khi record trước chưa xong&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#F97316;strokeWidth=2;fontColor=#9A3412;spacing=12;" vertex="1" parent="p1">
+          <mxGeometry x="1140" y="800" width="280" height="110" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="p-note" value="&lt;b&gt;Failure behaviour&lt;/b&gt; · Kafka down: issue đã commit không rollback, outbox retry · Project down: Issue API trả 503, Notification retry → consumer lag tăng · Notification down: Issue API không bị ảnh hưởng · Event trùng: cùng id deterministic, không tạo notification trùng" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFBEB;strokeColor=#F59E0B;fontColor=#92400E;spacing=12;align=left;" vertex="1" parent="p1">
+          <mxGeometry x="60" y="960" width="1750" height="70" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="p-e-gateway-issue" value="internal HTTP" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#2563EB;strokeWidth=2;endArrow=block;endFill=1;fontColor=#1E3A8A;labelBackgroundColor=#FFFFFF;" edge="1" parent="p1" source="p-gateway" target="p-issue">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="p-e-issue-project" value="access-context" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#2563EB;strokeWidth=2;endArrow=block;endFill=1;fontColor=#1E3A8A;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="p1" source="p-issue" target="p-project">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="p-e-issue-db" value="commit" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#8B5CF6;strokeWidth=2;endArrow=block;endFill=1;fontColor=#5B21B6;labelBackgroundColor=#FFFFFF;" edge="1" parent="p1" source="p-issue" target="p-issue-db">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="p-e-db-outbox" value="read pending" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#8B5CF6;strokeWidth=2;endArrow=block;endFill=1;fontColor=#5B21B6;labelBackgroundColor=#FFFFFF;" edge="1" parent="p1" source="p-issue-db" target="p-outbox">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="p-e-outbox-kafka" value="produce" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#F97316;strokeWidth=2;endArrow=block;endFill=1;fontColor=#9A3412;labelBackgroundColor=#FFFFFF;" edge="1" parent="p1" source="p-outbox" target="p-redpanda">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="p-e-kafka-consumer" value="consume" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#F97316;strokeWidth=2;endArrow=block;endFill=1;fontColor=#9A3412;labelBackgroundColor=#FFFFFF;" edge="1" parent="p1" source="p-redpanda" target="p-consumer">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="p-e-consumer-recheck" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#0EA5E9;strokeWidth=2;endArrow=block;endFill=1;" edge="1" parent="p1" source="p-consumer" target="p-recheck">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="p-e-recheck-project" value="access-context" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#2563EB;strokeWidth=2;endArrow=block;endFill=1;fontColor=#1E3A8A;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="p1" source="p-recheck" target="p-project">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="p-e-recheck-redis" value="save eligible" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#10B981;strokeWidth=2;endArrow=block;endFill=1;fontColor=#047857;labelBackgroundColor=#FFFFFF;" edge="1" parent="p1" source="p-recheck" target="p-redis">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="p-e-web-redis" value="read" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#64748B;strokeWidth=2;dashed=1;startArrow=block;startFill=1;endArrow=none;fontColor=#475569;labelBackgroundColor=#FFFFFF;" edge="1" parent="p1" source="p-web" target="p-redis">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="p-e-redis-commit" value="saved" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#F97316;strokeWidth=2;endArrow=block;endFill=1;fontColor=#9A3412;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="p1" source="p-redis" target="p-commit">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="p-e-consumer-dlq" value="permanent error / 5 lần thất bại" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#DC2626;strokeWidth=2;dashed=1;dashPattern=6 4;endArrow=block;endFill=1;fontColor=#991B1B;labelBackgroundColor=#FFFFFF;" edge="1" parent="p1" source="p-consumer" target="p-dlq">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        <mxCell id="p-e-dlq-commit" value="written" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#DC2626;strokeWidth=2;dashed=1;dashPattern=6 4;endArrow=block;endFill=1;fontColor=#991B1B;labelBackgroundColor=#FFFFFF;" edge="1" parent="p1" source="p-dlq" target="p-commit">
+          <mxGeometry relative="1" as="geometry"/>
         </mxCell>
       </root>
     </mxGraphModel>

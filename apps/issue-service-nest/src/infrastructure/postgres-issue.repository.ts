@@ -5,6 +5,7 @@ import type {
   IssueRepository,
   NewIssueData,
   OutboxEvent,
+  OutboxStatus,
   UpdateIssueData,
 } from '../application/ports';
 import { DomainError } from '../domain/errors';
@@ -18,6 +19,8 @@ import type {
   ValidatedIssueTransition,
 } from '../domain/issue';
 import { Database } from './database';
+
+export const OUTBOX_MAX_PUBLISH_ATTEMPTS = 20;
 
 interface IssueRow {
   id: string;
@@ -333,10 +336,12 @@ export class PostgresIssueRepository implements IssueRepository {
       `SELECT event_id, event_type, aggregate_id, aggregate_version,
               project_id, actor_user_id, payload, occurred_at
        FROM outbox_events
-       WHERE published_at IS NULL AND publish_attempts < 20
+       WHERE published_at IS NULL
+         AND publish_attempts < $2
+         AND next_attempt_at <= NOW()
        ORDER BY occurred_at
        LIMIT $1`,
-      [limit],
+      [limit, OUTBOX_MAX_PUBLISH_ATTEMPTS],
     );
     return result.rows.map((row) => ({
       eventId: row.event_id,
@@ -357,12 +362,49 @@ export class PostgresIssueRepository implements IssueRepository {
     );
   }
 
-  async recordPublishFailure(eventId: string): Promise<void> {
-    await this.database.query(
-      `UPDATE outbox_events SET publish_attempts = publish_attempts + 1
-       WHERE event_id = $1`,
-      [eventId],
+  async recordPublishFailure(
+    eventId: string,
+    error: string,
+  ): Promise<{ attempts: number; abandoned: boolean }> {
+    // Backoff doubles from 1 s per attempt and is capped at 5 minutes, so the
+    // attempt budget spans roughly an hour of broker unavailability.
+    const result = await this.database.query<{ publish_attempts: number }>(
+      `UPDATE outbox_events
+       SET publish_attempts = publish_attempts + 1,
+           last_error = LEFT($2, 1000),
+           next_attempt_at = NOW() + LEAST(
+             POWER(2, LEAST(publish_attempts, 20)) * INTERVAL '1 second',
+             INTERVAL '5 minutes'
+           )
+       WHERE event_id = $1
+       RETURNING publish_attempts`,
+      [eventId, error],
     );
+    const attempts = result.rows[0]?.publish_attempts ?? 0;
+    return { attempts, abandoned: attempts >= OUTBOX_MAX_PUBLISH_ATTEMPTS };
+  }
+
+  async outboxStatus(): Promise<OutboxStatus> {
+    const result = await this.database.query<{
+      pending: string;
+      abandoned: string;
+      oldest_pending_seconds: number | null;
+    }>(
+      `SELECT
+         count(*) FILTER (WHERE publish_attempts < $1) AS pending,
+         count(*) FILTER (WHERE publish_attempts >= $1) AS abandoned,
+         floor(EXTRACT(EPOCH FROM NOW() - min(occurred_at) FILTER (WHERE publish_attempts < $1)))::int
+           AS oldest_pending_seconds
+       FROM outbox_events
+       WHERE published_at IS NULL`,
+      [OUTBOX_MAX_PUBLISH_ATTEMPTS],
+    );
+    const row = result.rows[0];
+    return {
+      pending: Number(row.pending),
+      abandoned: Number(row.abandoned),
+      oldestPendingSeconds: row.oldest_pending_seconds,
+    };
   }
 
   private async updateWithVersion(

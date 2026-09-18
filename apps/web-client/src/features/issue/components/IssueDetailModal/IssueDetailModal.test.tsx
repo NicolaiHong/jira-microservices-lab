@@ -17,12 +17,27 @@ vi.mock("../../api", () => ({
 
 const commentMocks = vi.hoisted(() => ({
   mutateAsync: vi.fn(),
+  comments: [] as unknown[],
 }));
 
 vi.mock("../../hooks/useIssue", () => ({
-  useComments: () => ({ data: [] }),
+  useComments: () => ({ data: commentMocks.comments }),
   useHistory: () => ({ data: [] }),
   useAddComment: () => ({ isPending: false, mutateAsync: commentMocks.mutateAsync }),
+}));
+
+const memberMocks = vi.hoisted(() => ({
+  members: {
+    data: [
+      { userId: "member-2", email: "member@example.test", role: "MEMBER", joinedAt: "", updatedAt: "" },
+      { userId: "author-1", email: "author@example.test", role: "ADMIN", joinedAt: "", updatedAt: "" },
+    ] as unknown[] | undefined,
+    isError: false,
+  },
+}));
+
+vi.mock("@/features/project/hooks/useProjects", () => ({
+  useProjectMembers: () => memberMocks.members,
 }));
 
 import { IssueDetailModal } from "./IssueDetailModal";
@@ -65,12 +80,12 @@ describe("Issue details mutations", () => {
     const view = (current: typeof issue) => <QueryClientProvider client={client}><IssueDetailModal isProjectWritable issue={current} issueId={current.id} /></QueryClientProvider>;
     const { rerender } = render(view(issue));
     fireEvent.change(screen.getByDisplayValue("Original summary"), { target: { value: "Stale draft" } });
-    fireEvent.change(screen.getByPlaceholderText("Member UUID; empty to unassign"), { target: { value: "stale-member" } });
+    fireEvent.change(screen.getByRole("combobox", { name: "Assignee" }), { target: { value: "member-2" } });
     fireEvent.change(screen.getByPlaceholderText("Write a comment"), { target: { value: "Keep comment draft" } });
     rerender(view({ ...issue, version: 8, summary: "Latest summary", description: "Latest description" }));
     expect(screen.getByDisplayValue("Latest summary")).toBeInTheDocument();
     expect(screen.getByDisplayValue("Latest description")).toBeInTheDocument();
-    expect(screen.getByPlaceholderText("Member UUID; empty to unassign")).toHaveValue("");
+    expect(screen.getByRole("combobox", { name: "Assignee" })).toHaveValue("");
     expect(screen.getByPlaceholderText("Write a comment")).toHaveValue("Keep comment draft");
   });
 
@@ -105,7 +120,7 @@ describe("Issue details mutations", () => {
       );
     });
 
-    fireEvent.change(screen.getByPlaceholderText("Member UUID; empty to unassign"), {
+    fireEvent.change(screen.getByRole("combobox", { name: "Assignee" }), {
       target: { value: "member-2" },
     });
     fireEvent.submit(container.querySelectorAll("form")[2]);
@@ -121,9 +136,7 @@ describe("Issue details mutations", () => {
     expect(screen.getByText("Comments")).toBeInTheDocument();
     expect(screen.getByText("History")).toBeInTheDocument();
     expect(screen.getByDisplayValue("Original summary")).toBeDisabled();
-    expect(
-      screen.getByPlaceholderText("Member UUID; empty to unassign"),
-    ).toBeDisabled();
+    expect(screen.getByRole("combobox", { name: "Assignee" })).toBeDisabled();
     expect(screen.getByPlaceholderText("Write a comment")).toBeDisabled();
     expect(screen.getByRole("button", { name: "Save issue" })).toBeDisabled();
     expect(
@@ -188,5 +201,30 @@ describe("Issue details mutations", () => {
       "maxlength",
       "5000",
     );
+  });
+
+  it("labels comment authors by member email and keeps a former assignee selectable", () => {
+    commentMocks.comments = [{ id: "c-1", issueId: "issue-1", authorUserId: "author-1", body: "Looks good", createdAt: "2026-08-24T00:00:00.000Z", updatedAt: "2026-08-24T00:00:00.000Z" }];
+    const client = new QueryClient();
+    render(<QueryClientProvider client={client}><IssueDetailModal isProjectWritable issue={{ ...issue, assigneeUserId: "removed-user" }} issueId={issue.id} /></QueryClientProvider>);
+    commentMocks.comments = [];
+
+    expect(screen.getByText(/^author@example\.test · /)).toBeInTheDocument();
+    const select = screen.getByRole("combobox", { name: "Assignee" });
+    expect(select).toHaveValue("removed-user");
+    expect(screen.getByRole("option", { name: "Former member" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "member@example.test" })).toBeInTheDocument();
+  });
+
+  it("waits for members before rendering the assignee picker", () => {
+    const loaded = memberMocks.members.data;
+    memberMocks.members.data = undefined;
+    try {
+      renderDetails();
+      expect(screen.getByText("Loading members…")).toBeInTheDocument();
+      expect(screen.queryByRole("combobox", { name: "Assignee" })).not.toBeInTheDocument();
+    } finally {
+      memberMocks.members.data = loaded;
+    }
   });
 });

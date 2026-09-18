@@ -1,3 +1,4 @@
+using ProjectService.Application;
 using ProjectService.Application.DTOs;
 using ProjectService.Application.UseCases;
 using ProjectService.Domain;
@@ -100,7 +101,7 @@ public sealed class WorkspaceUseCaseTests
         AddMember(store, workspace.Id, memberId, WorkspaceRoles.Member);
 
         var exception = await Assert.ThrowsAsync<DomainException>(() =>
-            new AddWorkspaceMemberUseCase(new InMemoryWorkspaceMemberRepository(store))
+            new AddWorkspaceMemberUseCase(new InMemoryWorkspaceMemberRepository(store), FakeUserDirectory.Empty)
                 .ExecuteAsync(
                     workspace.Id,
                     new AddWorkspaceMemberCommand(Guid.NewGuid(), WorkspaceRoles.Member),
@@ -122,7 +123,7 @@ public sealed class WorkspaceUseCaseTests
         AddMember(store, workspace.Id, adminId, WorkspaceRoles.Admin);
         var repository = new InMemoryWorkspaceMemberRepository(store);
 
-        var added = await new AddWorkspaceMemberUseCase(repository).ExecuteAsync(
+        var added = await new AddWorkspaceMemberUseCase(repository, FakeUserDirectory.Empty).ExecuteAsync(
             workspace.Id,
             new AddWorkspaceMemberCommand(targetId, WorkspaceRoles.Member),
             adminId,
@@ -156,7 +157,7 @@ public sealed class WorkspaceUseCaseTests
         var repository = new InMemoryWorkspaceMemberRepository(store);
 
         var grant = await Assert.ThrowsAsync<DomainException>(() =>
-            new AddWorkspaceMemberUseCase(repository).ExecuteAsync(
+            new AddWorkspaceMemberUseCase(repository, FakeUserDirectory.Empty).ExecuteAsync(
                 workspace.Id,
                 new AddWorkspaceMemberCommand(Guid.NewGuid(), WorkspaceRoles.Owner),
                 adminId,
@@ -194,7 +195,7 @@ public sealed class WorkspaceUseCaseTests
         AddMember(store, workspace.Id, secondOwnerId, WorkspaceRoles.Owner);
         var repository = new InMemoryWorkspaceMemberRepository(store);
 
-        var newOwner = await new AddWorkspaceMemberUseCase(repository).ExecuteAsync(
+        var newOwner = await new AddWorkspaceMemberUseCase(repository, FakeUserDirectory.Empty).ExecuteAsync(
             workspace.Id,
             new AddWorkspaceMemberCommand(memberId, WorkspaceRoles.Owner),
             ownerId,
@@ -248,7 +249,7 @@ public sealed class WorkspaceUseCaseTests
         AddMember(store, workspace.Id, existingMemberId, WorkspaceRoles.Member);
 
         var exception = await Assert.ThrowsAsync<DomainException>(() =>
-            new AddWorkspaceMemberUseCase(new InMemoryWorkspaceMemberRepository(store))
+            new AddWorkspaceMemberUseCase(new InMemoryWorkspaceMemberRepository(store), FakeUserDirectory.Empty)
                 .ExecuteAsync(
                     workspace.Id,
                     new AddWorkspaceMemberCommand(existingMemberId, WorkspaceRoles.Member),
@@ -266,7 +267,7 @@ public sealed class WorkspaceUseCaseTests
         var workspace = AddWorkspace(store, "Team", "team");
 
         var exception = await Assert.ThrowsAsync<DomainException>(() =>
-            new AddWorkspaceMemberUseCase(new InMemoryWorkspaceMemberRepository(store))
+            new AddWorkspaceMemberUseCase(new InMemoryWorkspaceMemberRepository(store), FakeUserDirectory.Empty)
                 .ExecuteAsync(
                     workspace.Id,
                     new AddWorkspaceMemberCommand(Guid.NewGuid(), WorkspaceRoles.Member),
@@ -310,6 +311,97 @@ public sealed class WorkspaceUseCaseTests
                     CancellationToken.None));
 
         Assert.Equal(ProjectErrorCodes.LastWorkspaceOwner, exception.Code);
+    }
+
+    [Fact]
+    public async Task AnyMemberListsMembersWithDirectoryEmailsAndNonMembersGetNotFound()
+    {
+        var store = new WorkspaceStore();
+        var workspace = AddWorkspace(store, "Team", "team");
+        var ownerId = Guid.NewGuid();
+        var memberId = Guid.NewGuid();
+        var orphanId = Guid.NewGuid();
+        AddMember(store, workspace.Id, ownerId, WorkspaceRoles.Owner);
+        AddMember(store, workspace.Id, memberId, WorkspaceRoles.Member);
+        AddMember(store, workspace.Id, orphanId, WorkspaceRoles.Member);
+        AddMember(store, Guid.NewGuid(), Guid.NewGuid(), WorkspaceRoles.Owner);
+        var directory = new FakeUserDirectory(
+            new DirectoryUser(ownerId, "owner@example.test"),
+            new DirectoryUser(memberId, "member@example.test"));
+        var useCase = new ListWorkspaceMembersUseCase(
+            new InMemoryWorkspaceMemberRepository(store), directory);
+
+        var result = await useCase.ExecuteAsync(workspace.Id, memberId, CancellationToken.None);
+        var hidden = await Assert.ThrowsAsync<DomainException>(() =>
+            useCase.ExecuteAsync(workspace.Id, Guid.NewGuid(), CancellationToken.None));
+
+        Assert.Equal(
+            [(ownerId, "owner@example.test"), (memberId, "member@example.test"), (orphanId, (string?)null)],
+            result.Items.Select(item => (item.UserId, item.Email)).ToList());
+        Assert.Equal(1, directory.Calls);
+        Assert.Equal(ProjectErrorCodes.WorkspaceNotFound, hidden.Code);
+    }
+
+    [Fact]
+    public async Task ManagerAddsMemberByNormalizedEmail()
+    {
+        var store = new WorkspaceStore();
+        var workspace = AddWorkspace(store, "Team", "team");
+        var ownerId = Guid.NewGuid();
+        var targetId = Guid.NewGuid();
+        AddMember(store, workspace.Id, ownerId, WorkspaceRoles.Owner);
+
+        var added = await new AddWorkspaceMemberUseCase(
+                new InMemoryWorkspaceMemberRepository(store),
+                new FakeUserDirectory(new DirectoryUser(targetId, "target@example.test")))
+            .ExecuteAsync(
+                workspace.Id,
+                new AddWorkspaceMemberCommand(null, WorkspaceRoles.Member, "  Target@Example.TEST "),
+                ownerId,
+                CancellationToken.None);
+
+        Assert.Equal(targetId, added.Member.UserId);
+        Assert.Contains(store.Members, member => member.WorkspaceId == workspace.Id && member.UserId == targetId);
+    }
+
+    [Fact]
+    public async Task EmailAdditionRejectsUnknownAmbiguousAndUnauthorizedRequestsWithoutProbing()
+    {
+        var store = new WorkspaceStore();
+        var workspace = AddWorkspace(store, "Team", "team");
+        var ownerId = Guid.NewGuid();
+        var adminId = Guid.NewGuid();
+        var memberId = Guid.NewGuid();
+        AddMember(store, workspace.Id, ownerId, WorkspaceRoles.Owner);
+        AddMember(store, workspace.Id, adminId, WorkspaceRoles.Admin);
+        AddMember(store, workspace.Id, memberId, WorkspaceRoles.Member);
+        var directory = new FakeUserDirectory(new DirectoryUser(Guid.NewGuid(), "known@example.test"));
+        var useCase = new AddWorkspaceMemberUseCase(new InMemoryWorkspaceMemberRepository(store), directory);
+        Task<AddWorkspaceMemberResult> Add(Guid actorId, AddWorkspaceMemberCommand command) =>
+            useCase.ExecuteAsync(workspace.Id, command, actorId, CancellationToken.None);
+
+        var unknown = await Assert.ThrowsAsync<DomainException>(() =>
+            Add(ownerId, new AddWorkspaceMemberCommand(null, WorkspaceRoles.Member, "nobody@example.test")));
+        Assert.Equal(1, directory.Calls);
+        var both = await Assert.ThrowsAsync<DomainException>(() =>
+            Add(ownerId, new AddWorkspaceMemberCommand(Guid.NewGuid(), WorkspaceRoles.Member, "known@example.test")));
+        var malformed = await Assert.ThrowsAsync<DomainException>(() =>
+            Add(ownerId, new AddWorkspaceMemberCommand(null, WorkspaceRoles.Member, "not-an-email")));
+        var memberActor = await Assert.ThrowsAsync<DomainException>(() =>
+            Add(memberId, new AddWorkspaceMemberCommand(null, WorkspaceRoles.Member, "known@example.test")));
+        var adminGrantingOwner = await Assert.ThrowsAsync<DomainException>(() =>
+            Add(adminId, new AddWorkspaceMemberCommand(null, WorkspaceRoles.Owner, "known@example.test")));
+        var nonMember = await Assert.ThrowsAsync<DomainException>(() =>
+            Add(Guid.NewGuid(), new AddWorkspaceMemberCommand(null, WorkspaceRoles.Member, "known@example.test")));
+
+        Assert.Equal((404, ProjectErrorCodes.UserNotFound), (unknown.StatusCode, unknown.Code));
+        Assert.Equal(ProjectErrorCodes.ValidationError, both.Code);
+        Assert.Equal(ProjectErrorCodes.ValidationError, malformed.Code);
+        Assert.Equal(ProjectErrorCodes.WorkspacePermissionDenied, memberActor.Code);
+        Assert.Equal(ProjectErrorCodes.WorkspacePermissionDenied, adminGrantingOwner.Code);
+        Assert.Equal(ProjectErrorCodes.WorkspaceNotFound, nonMember.Code);
+        Assert.Equal(1, directory.Calls);
+        Assert.Equal(3, store.Members.Count);
     }
 
     private static CreateWorkspaceUseCase CreateWorkspaceUseCase(WorkspaceStore store) =>
@@ -394,6 +486,12 @@ public sealed class WorkspaceUseCaseTests
             Task.FromResult(store.Members.SingleOrDefault(member =>
                 member.WorkspaceId == workspaceId && member.UserId == userId));
 
+        public Task<IReadOnlyList<WorkspaceMember>> ListByWorkspaceIdAsync(
+            Guid workspaceId,
+            CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<WorkspaceMember>>(
+                store.Members.Where(member => member.WorkspaceId == workspaceId).ToList());
+
         public Task<IReadOnlyList<WorkspaceMember>> ListByUserIdAsync(
             Guid userId,
             CancellationToken cancellationToken) =>
@@ -417,5 +515,23 @@ public sealed class WorkspaceUseCaseTests
 
         public Task SaveChangesAsync(CancellationToken cancellationToken) =>
             Task.CompletedTask;
+    }
+}
+
+internal sealed class FakeUserDirectory(params DirectoryUser[] users) : IUserDirectory
+{
+    public static FakeUserDirectory Empty => new();
+
+    public int Calls { get; private set; }
+
+    public Task<IReadOnlyList<DirectoryUser>> LookupAsync(
+        IReadOnlyCollection<Guid> ids,
+        IReadOnlyCollection<string> emails,
+        CancellationToken cancellationToken)
+    {
+        Calls++;
+        return Task.FromResult<IReadOnlyList<DirectoryUser>>(users
+            .Where(user => ids.Contains(user.Id) || emails.Contains(user.Email))
+            .ToList());
     }
 }

@@ -13,6 +13,7 @@ public static class ProjectEndpoints
 
         group.MapPost("/workspaces", CreateWorkspaceAsync);
         group.MapGet("/workspaces", ListUserWorkspacesAsync);
+        group.MapGet("/workspaces/{workspaceId}/members", ListWorkspaceMembersAsync);
         group.MapPost("/workspaces/{workspaceId}/members", AddWorkspaceMemberAsync);
         group.MapPatch("/workspaces/{workspaceId}/members/{userId}", ChangeWorkspaceMemberRoleAsync);
         group.MapDelete("/workspaces/{workspaceId}/members/{userId}", RemoveWorkspaceMemberAsync);
@@ -79,6 +80,20 @@ public static class ProjectEndpoints
         return Results.Created(
             $"/internal/workspaces/{response.Project.WorkspaceId}/projects/{response.Project.Id}",
             response);
+    }
+
+    private static async Task<IResult> ListWorkspaceMembersAsync(
+        string workspaceId,
+        HttpContext httpContext,
+        ListWorkspaceMembersUseCase useCase,
+        CancellationToken cancellationToken)
+    {
+        var parsedWorkspaceId = RequestValidation.ParseUuid(workspaceId, "workspaceId");
+        var actor = AuthContext.FromHttpContext(httpContext);
+        var result = await useCase.ExecuteAsync(
+            parsedWorkspaceId, actor.UserId, cancellationToken);
+
+        return Results.Ok(ProjectDtoMapper.ToResponse(result));
     }
 
     private static async Task<IResult> AddWorkspaceMemberAsync(

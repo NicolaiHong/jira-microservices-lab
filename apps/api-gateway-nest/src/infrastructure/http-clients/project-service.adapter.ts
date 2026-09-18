@@ -47,6 +47,18 @@ export class ProjectServiceAdapter {
     );
   }
 
+  listWorkspaceMembers(
+    workspaceId: string,
+    context: RequestContext,
+  ): Promise<unknown> {
+    return this.client.forward(
+      'GET',
+      `/internal/workspaces/${encodeURIComponent(workspaceId)}/members`,
+      undefined,
+      context,
+    );
+  }
+
   addWorkspaceMember(
     workspaceId: string,
     body: unknown,

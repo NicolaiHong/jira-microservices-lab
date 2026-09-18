@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { QueryError } from "@/components/shared/QueryError";
+import { MemberSelect } from "@/features/project/components/MemberSelect";
+import { useProjectMembers } from "@/features/project/hooks/useProjects";
 import { getApiErrorMessage } from "@/lib/apiError";
 import {
   assignIssue,
@@ -32,6 +34,10 @@ export function IssueDetailModal({
   const comments = useComments(issueId);
   const history = useHistory(issueId);
   const addComment = useAddComment(issueId, issue?.projectId);
+  const members = useProjectMembers(issue?.projectId);
+  const memberLabels = new Map(
+    members.data?.map((member) => [member.userId, member.email ?? member.userId]),
+  );
   const queryClient = useQueryClient();
 
   async function refreshProjectIfArchived(error: unknown) {
@@ -194,7 +200,7 @@ export function IssueDetailModal({
             </form>
             {comments.isPending ? <p className="text-sm text-muted-foreground">Loading comments…</p> : null}
             {comments.isError ? <QueryError resource="comments" queries={[comments]} /> : null}
-            {comments.data?.map((comment) => <div className="rounded-lg border p-3 text-sm" key={comment.id}><p>{comment.body}</p><p className="mt-1 text-xs text-muted-foreground">{comment.authorUserId} · {new Date(comment.createdAt).toLocaleString()}</p></div>)}
+            {comments.data?.map((comment) => <div className="rounded-lg border p-3 text-sm" key={comment.id}><p>{comment.body}</p><p className="mt-1 text-xs text-muted-foreground">{memberLabels.get(comment.authorUserId) ?? comment.authorUserId} · {new Date(comment.createdAt).toLocaleString()}</p></div>)}
             {comments.data?.length === 0 ? <p className="text-sm text-muted-foreground">No comments yet.</p> : null}
           </CardContent>
         </Card>
@@ -202,7 +208,14 @@ export function IssueDetailModal({
       <div className="space-y-5">
         <Card>
           <CardHeader><CardTitle>Assignment</CardTitle></CardHeader>
-          <CardContent><form key={`${issue.id}:${issue.version}`} className="space-y-3" onSubmit={submitAssignment}><Input defaultValue={issue.assigneeUserId ?? ""} disabled={!isProjectWritable} name="assigneeUserId" placeholder="Member UUID; empty to unassign" /><Button className="w-full" disabled={!isProjectWritable || assign.isPending} type="submit">Update assignee</Button></form></CardContent>
+          <CardContent>
+            {members.isError ? <QueryError resource="members" queries={[members]} /> : members.data ? (
+              <form key={`${issue.id}:${issue.version}`} className="space-y-3" onSubmit={submitAssignment}>
+                <MemberSelect defaultValue={issue.assigneeUserId} disabled={!isProjectWritable} members={members.data} name="assigneeUserId" />
+                <Button className="w-full" disabled={!isProjectWritable || assign.isPending} type="submit">Update assignee</Button>
+              </form>
+            ) : <p className="text-sm text-muted-foreground">Loading members…</p>}
+          </CardContent>
         </Card>
         <Card>
           <CardHeader><CardTitle>History</CardTitle></CardHeader>

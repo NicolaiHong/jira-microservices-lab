@@ -33,3 +33,18 @@ export interface CreateProjectPayload {
 export interface ListResponse<T> {
   items: T[];
 }
+
+export type WorkspaceRole = Workspace["role"];
+
+export interface WorkspaceMember {
+  userId: string;
+  email: string | null;
+  role: WorkspaceRole;
+  joinedAt: string;
+  updatedAt: string;
+}
+
+export interface AddWorkspaceMemberPayload {
+  email: string;
+  role: WorkspaceRole;
+}

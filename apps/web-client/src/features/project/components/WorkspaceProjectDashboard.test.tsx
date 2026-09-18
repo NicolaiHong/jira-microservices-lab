@@ -12,6 +12,7 @@ import {
   createProject,
   createWorkspace,
   listProjects,
+  listWorkspaceMembers,
   listWorkspaces,
 } from "../api";
 import { WorkspaceProjectDashboard } from "./WorkspaceProjectDashboard";
@@ -20,6 +21,7 @@ vi.mock("../api", () => ({
   createProject: vi.fn(),
   createWorkspace: vi.fn(),
   listProjects: vi.fn(),
+  listWorkspaceMembers: vi.fn(),
   listWorkspaces: vi.fn(),
 }));
 
@@ -64,6 +66,7 @@ describe("WorkspaceProjectDashboard", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     listProjectsMock.mockResolvedValue([]);
+    vi.mocked(listWorkspaceMembers).mockResolvedValue([]);
     createProjectMock.mockResolvedValue({
       id: "project-1",
       workspaceId: existingWorkspace.id,
