@@ -86,8 +86,8 @@ export interface IssueRepository {
   ): Promise<IssueComment>;
   listComments(issueId: string): Promise<IssueComment[]>;
   listHistory(issueId: string): Promise<IssueHistory[]>;
-  pendingEvents(limit: number): Promise<OutboxEvent[]>;
-  markEventPublished(eventId: string): Promise<void>;
+  claimPendingEvents(limit: number): Promise<OutboxEvent[]>;
+  markEventsPublished(eventIds: string[]): Promise<void>;
   recordPublishFailure(
     eventId: string,
     error: string,

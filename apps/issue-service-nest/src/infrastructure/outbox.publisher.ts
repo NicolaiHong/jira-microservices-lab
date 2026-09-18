@@ -57,7 +57,7 @@ export class OutboxPublisher implements OnModuleInit, OnModuleDestroy {
         await this.producer.connect();
         this.connected = true;
       }
-      const events = await this.issues.pendingEvents(50);
+      const events = await this.issues.claimPendingEvents(50);
       if (events.length === 0) return;
       try {
         await this.producer.send({
@@ -75,29 +75,34 @@ export class OutboxPublisher implements OnModuleInit, OnModuleDestroy {
         }
         throw error;
       }
-      for (const event of events) {
-        try {
-          await this.issues.markEventPublished(event.eventId);
-          this.logger.log(
-            JSON.stringify({
-              service: 'issue-service',
-              eventId: event.eventId,
-              eventType: event.eventType,
-              aggregateId: event.aggregateId,
-              message: 'outbox_event_published',
-            }),
-          );
-        } catch (error) {
+      try {
+        await this.issues.markEventsPublished(events.map((event) => event.eventId));
+      } catch (error) {
+        // Delivered but not marked: the batch stays pending and is redelivered
+        // after backoff; consumers deduplicate by eventId.
+        this.logger.error(
+          JSON.stringify({
+            service: 'issue-service',
+            eventIds: events.map((event) => event.eventId),
+            message: 'outbox_event_publish_failed',
+            error: describe(error),
+          }),
+        );
+        for (const event of events) {
           await this.recordFailure(event.eventId, error);
-          this.logger.error(
-            JSON.stringify({
-              service: 'issue-service',
-              eventId: event.eventId,
-              message: 'outbox_event_publish_failed',
-              error: describe(error),
-            }),
-          );
         }
+        return;
+      }
+      for (const event of events) {
+        this.logger.log(
+          JSON.stringify({
+            service: 'issue-service',
+            eventId: event.eventId,
+            eventType: event.eventType,
+            aggregateId: event.aggregateId,
+            message: 'outbox_event_published',
+          }),
+        );
       }
     } catch (error) {
       this.connected = false;

@@ -536,7 +536,7 @@ test(
           )
         ).rows[0];
       assert.deepEqual(
-        (await repository.pendingEvents(50)).map((event) => event.eventId),
+        (await repository.claimPendingEvents(50)).map((event) => event.eventId),
         [eventId],
       );
 
@@ -544,7 +544,7 @@ test(
         await repository.recordPublishFailure(eventId, 'broker unavailable'),
         { attempts: 1, abandoned: false },
       );
-      assert.deepEqual(await repository.pendingEvents(50), []);
+      assert.deepEqual(await repository.claimPendingEvents(50), []);
       const afterFirst = await outboxRow();
       assert.equal(afterFirst.last_error, 'broker unavailable');
       assert.ok(afterFirst.delay_seconds > 0 && afterFirst.delay_seconds <= 1.5);
@@ -569,13 +569,75 @@ test(
         'UPDATE outbox_events SET next_attempt_at = NOW() WHERE event_id = $1',
         [eventId],
       );
-      assert.deepEqual(await repository.pendingEvents(50), []);
+      assert.deepEqual(await repository.claimPendingEvents(50), []);
       assert.equal((await outboxRow()).last_error.length, 1000);
       assert.deepEqual(await repository.outboxStatus(), {
         pending: 0,
         abandoned: 1,
         oldestPendingSeconds: null,
       });
+    });
+
+    await t.test('concurrent outbox claims lease disjoint event sets', async () => {
+      await database.query('UPDATE outbox_events SET published_at = NOW() WHERE published_at IS NULL');
+      const issues = await Promise.all(
+        Array.from({ length: 10 }, (_, n) =>
+          repository.createIssue(newIssue(randomUUID(), `Claim ${n}`)),
+        ),
+      );
+
+      const [first, second] = await Promise.all([
+        repository.claimPendingEvents(10),
+        repository.claimPendingEvents(10),
+      ]);
+      const firstIds = first.map((event) => event.aggregateId);
+      const secondIds = second.map((event) => event.aggregateId);
+      assert.equal(firstIds.filter((id) => secondIds.includes(id)).length, 0);
+      assert.deepEqual(
+        [...firstIds, ...secondIds].sort(),
+        issues.map((issue) => issue.id).sort(),
+      );
+      assert.deepEqual(await repository.claimPendingEvents(10), []);
+    });
+
+    await t.test('an unpublished earlier event blocks later events of the same issue only', async () => {
+      await database.query('UPDATE outbox_events SET published_at = NOW() WHERE published_at IS NULL');
+      const blocked = await repository.createIssue(newIssue(randomUUID(), 'Blocked'));
+      await repository.updateIssue(
+        blocked,
+        blocked.version,
+        { summary: 'Blocked v2', description: null, type: 'TASK', priority: 'MEDIUM' },
+        reporterUserId,
+      );
+      const other = await repository.createIssue(newIssue(randomUUID(), 'Other'));
+      const eventOf = async (aggregateId: string, version: number) =>
+        (
+          await database.query<{ event_id: string }>(
+            'SELECT event_id FROM outbox_events WHERE aggregate_id = $1 AND aggregate_version = $2',
+            [aggregateId, version],
+          )
+        ).rows[0].event_id;
+      const v1 = await eventOf(blocked.id, 1);
+      const v2 = await eventOf(blocked.id, 2);
+      await repository.recordPublishFailure(v1, 'broker unavailable');
+
+      const claimed = await repository.claimPendingEvents(50);
+      assert.deepEqual(
+        claimed.map((event) => [event.aggregateId, event.aggregateVersion]),
+        [[other.id, 1]],
+      );
+
+      await database.query(
+        'UPDATE outbox_events SET publish_attempts = 20, next_attempt_at = NOW() WHERE event_id = $1',
+        [v1],
+      );
+      assert.deepEqual(await repository.claimPendingEvents(50), []);
+
+      await repository.markEventsPublished([v1]);
+      assert.deepEqual(
+        (await repository.claimPendingEvents(50)).map((event) => event.eventId),
+        [v2],
+      );
     });
   },
 );

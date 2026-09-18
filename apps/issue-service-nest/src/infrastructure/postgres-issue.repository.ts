@@ -21,6 +21,7 @@ import type {
 import { Database } from './database';
 
 export const OUTBOX_MAX_PUBLISH_ATTEMPTS = 20;
+export const OUTBOX_CLAIM_LEASE_SECONDS = 30;
 
 interface IssueRow {
   id: string;
@@ -331,34 +332,57 @@ export class PostgresIssueRepository implements IssueRepository {
     }));
   }
 
-  async pendingEvents(limit: number): Promise<OutboxEvent[]> {
+  async claimPendingEvents(limit: number): Promise<OutboxEvent[]> {
+    // Leases due events that have no earlier unpublished event for the same
+    // aggregate (ADR 0004). The lease exceeds a Kafka send, so no transaction
+    // stays open while publishing; an expired lease makes the event due again.
+    // ponytail: one event per aggregate per poll; drain in a loop if bursts on
+    // a single issue lag.
     const result = await this.database.query<OutboxRow>(
-      `SELECT event_id, event_type, aggregate_id, aggregate_version,
-              project_id, actor_user_id, payload, occurred_at
-       FROM outbox_events
-       WHERE published_at IS NULL
-         AND publish_attempts < $2
-         AND next_attempt_at <= NOW()
-       ORDER BY occurred_at
-       LIMIT $1`,
-      [limit, OUTBOX_MAX_PUBLISH_ATTEMPTS],
+      `UPDATE outbox_events
+       SET next_attempt_at = NOW() + $3 * INTERVAL '1 second'
+       WHERE event_id IN (
+         SELECT candidate.event_id
+         FROM outbox_events candidate
+         WHERE candidate.published_at IS NULL
+           AND candidate.publish_attempts < $2
+           AND candidate.next_attempt_at <= NOW()
+           AND NOT EXISTS (
+             SELECT 1 FROM outbox_events earlier
+             WHERE earlier.aggregate_id = candidate.aggregate_id
+               AND earlier.published_at IS NULL
+               AND earlier.aggregate_version < candidate.aggregate_version
+           )
+         ORDER BY candidate.occurred_at
+         LIMIT $1
+         FOR UPDATE SKIP LOCKED
+       )
+       RETURNING event_id, event_type, aggregate_id, aggregate_version,
+                 project_id, actor_user_id, payload, occurred_at`,
+      [limit, OUTBOX_MAX_PUBLISH_ATTEMPTS, OUTBOX_CLAIM_LEASE_SECONDS],
     );
-    return result.rows.map((row) => ({
-      eventId: row.event_id,
-      eventType: row.event_type,
-      aggregateId: row.aggregate_id,
-      aggregateVersion: row.aggregate_version,
-      projectId: row.project_id,
-      actorUserId: row.actor_user_id,
-      occurredAt: row.occurred_at.toISOString(),
-      payload: row.payload,
-    }));
+    return result.rows
+      .sort(
+        (a, b) =>
+          a.occurred_at.getTime() - b.occurred_at.getTime() ||
+          a.event_id.localeCompare(b.event_id),
+      )
+      .map((row) => ({
+        eventId: row.event_id,
+        eventType: row.event_type,
+        aggregateId: row.aggregate_id,
+        aggregateVersion: row.aggregate_version,
+        projectId: row.project_id,
+        actorUserId: row.actor_user_id,
+        occurredAt: row.occurred_at.toISOString(),
+        payload: row.payload,
+      }));
   }
 
-  async markEventPublished(eventId: string): Promise<void> {
+  async markEventsPublished(eventIds: string[]): Promise<void> {
     await this.database.query(
-      `UPDATE outbox_events SET published_at = NOW() WHERE event_id = $1`,
-      [eventId],
+      `UPDATE outbox_events SET published_at = NOW() WHERE event_id = ANY($1::uuid[])`,
+      [eventIds],
     );
   }
 
