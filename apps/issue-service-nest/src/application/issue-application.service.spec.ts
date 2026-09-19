@@ -164,10 +164,10 @@ function fakeRepository(current = issue()): FakeRepository {
     async listHistory(): Promise<IssueHistory[]> {
       return [];
     },
-    async pendingEvents() {
+    async claimPendingEvents() {
       return [];
     },
-    async markEventPublished() {},
+    async markEventsPublished() {},
     async recordPublishFailure() {
       return { attempts: 1, abandoned: false };
     },

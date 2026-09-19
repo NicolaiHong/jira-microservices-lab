@@ -12,5 +12,6 @@
 - Transition requests have no idempotency-key guarantee. Clients must use the returned/current Issue version and handle `CONCURRENT_ISSUE_MODIFICATION`; they must not assume duplicate submissions collapse to one command.
 - Comment POST requests also have no idempotency-key guarantee. A client preserves its entered comment and refreshes Issue-related queries on `CONCURRENT_ISSUE_MODIFICATION`; it must not retry an uncertain business mutation automatically.
 - Notification Service rechecks current Project membership before Redis projection. The check and subsequent Redis write cannot be one atomic transaction, so access can change in the accepted TOCTOU interval; a Project outage delays projections and can increase Kafka lag.
-- An outbox event abandoned after 20 failed publish attempts is not requeued automatically; an operator resets it with the SQL in [Health API](../api/health.md#issue-service-health).
+- An outbox event abandoned after 20 failed publish attempts is not requeued automatically, and it blocks every later event of the same Issue until an operator resets it with the SQL in [Health API](../api/health.md#issue-service-health). Events of other Issues keep publishing ([ADR 0004](../decisions/0004-outbox-claim-and-per-aggregate-ordering.md)).
+- Issue events are ordered per Issue only, and each Issue advances at most one event per two-second publisher poll.
 - The Board offers button-based legal status moves only. Drag-and-drop status movement is intentionally not implemented.

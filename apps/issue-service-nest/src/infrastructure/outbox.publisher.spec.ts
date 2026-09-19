@@ -11,8 +11,8 @@ function fixture(sendFails = false, markFails = false, abandonAt = Infinity) {
   const failed: Array<{ id: string; error: string }> = [];
   const logged: string[] = [];
   const repository = {
-    pendingEvents: async () => events,
-    markEventPublished: async (id: string) => { if (markFails && id === 'event-1') throw new Error('database unavailable'); published.push(id); },
+    claimPendingEvents: async () => events,
+    markEventsPublished: async (ids: string[]) => { if (markFails) throw new Error('database unavailable'); published.push(...ids); },
     recordPublishFailure: async (id: string, error: string) => {
       failed.push({ id, error });
       const attempts = failed.filter((entry) => entry.id === id).length;
@@ -55,11 +55,15 @@ test('failed delivery leaves every event pending and records the error for each'
   assert.equal(f.sent.length, 2);
 });
 
-test('a failed publication marker leaves that event retryable without hiding other acknowledgements', async () => {
+test('a failed publication marker keeps the whole batch retryable', async () => {
   const f = fixture(false, true);
   await f.publish();
-  assert.deepEqual(f.published, ['event-2']);
-  assert.deepEqual(f.failed, [{ id: 'event-1', error: 'database unavailable' }]);
+  assert.deepEqual(f.published, []);
+  assert.deepEqual(f.failed, [
+    { id: 'event-1', error: 'database unavailable' },
+    { id: 'event-2', error: 'database unavailable' },
+  ]);
+  assert.equal(f.logged.filter((line) => line.includes('outbox_event_publish_failed')).length, 1);
 });
 
 test('logs an abandoned event once its attempt budget is exhausted', async () => {
