@@ -11,7 +11,8 @@ import type { FastifyInstance } from 'fastify';
 import jwt from 'jsonwebtoken';
 import type { InjectOptions, Response as InjectResponse } from 'light-my-request';
 import { AppException } from '../../common/errors/app.exception';
-import { IssuesService } from '../../services/issues.service';
+import { IssueServiceAdapter } from '../../infrastructure/http-clients/issue-service.adapter';
+import type { RequestContext } from '../../infrastructure/http-clients/internal-service-http.client';
 import { ApiExceptionFilter } from '../common/filters/api-exception.filter';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { IssuesController } from './issues.controller';
@@ -25,7 +26,7 @@ const jwtConfiguration = {
 interface TransitionCall {
   issueId: string;
   body: unknown;
-  userId: string | undefined;
+  userId: string;
   correlationId: string;
 }
 
@@ -33,11 +34,11 @@ interface CommentActivityCall {
   operation: 'addComment' | 'listComments' | 'listHistory';
   issueId: string;
   body: unknown;
-  userId: string | undefined;
+  userId: string;
   correlationId: string;
 }
 
-class RecordingIssuesService {
+class RecordingIssueServiceAdapter {
   readonly calls: TransitionCall[] = [];
   readonly commentActivityCalls: CommentActivityCall[] = [];
   nextError: AppException | undefined;
@@ -45,8 +46,7 @@ class RecordingIssuesService {
   transitionIssue(
     issueId: string,
     body: unknown,
-    userId: string | undefined,
-    correlationId: string,
+    { userId, correlationId }: RequestContext,
   ) {
     this.calls.push({ issueId, body, userId, correlationId });
     if (this.nextError) {
@@ -65,8 +65,7 @@ class RecordingIssuesService {
   addComment(
     issueId: string,
     body: unknown,
-    userId: string | undefined,
-    correlationId: string,
+    { userId, correlationId }: RequestContext,
   ) {
     this.commentActivityCalls.push({
       operation: 'addComment',
@@ -82,7 +81,7 @@ class RecordingIssuesService {
     return { comment: { id: 'comment-123', issueId, body: (body as { body?: unknown }).body } };
   }
 
-  listComments(issueId: string, userId: string | undefined, correlationId: string) {
+  listComments(issueId: string, { userId, correlationId }: RequestContext) {
     this.commentActivityCalls.push({
       operation: 'listComments',
       issueId,
@@ -97,7 +96,7 @@ class RecordingIssuesService {
     return { items: [{ id: 'comment-123', issueId }] };
   }
 
-  listHistory(issueId: string, userId: string | undefined, correlationId: string) {
+  listHistory(issueId: string, { userId, correlationId }: RequestContext) {
     this.commentActivityCalls.push({
       operation: 'listHistory',
       issueId,
@@ -115,7 +114,7 @@ class RecordingIssuesService {
 
 test('routes transition requests through JWT authentication and the public error envelope', async (t) => {
   const restore = configureJwtEnvironment();
-  const issues = new RecordingIssuesService();
+  const issues = new RecordingIssueServiceAdapter();
   const app = await createGatewayApp(issues);
   const accessToken = signedAccessToken(60);
 
@@ -214,7 +213,7 @@ test('routes transition requests through JWT authentication and the public error
 
 test('routes comment and activity requests through JWT authentication without Gateway business logic', async (t) => {
   const restore = configureJwtEnvironment();
-  const issues = new RecordingIssuesService();
+  const issues = new RecordingIssueServiceAdapter();
   const app = await createGatewayApp(issues);
   const accessToken = signedAccessToken(60);
 
@@ -322,13 +321,13 @@ test('routes comment and activity requests through JWT authentication without Ga
 });
 
 async function createGatewayApp(
-  issues: RecordingIssuesService,
+  issues: RecordingIssueServiceAdapter,
 ): Promise<NestFastifyApplication> {
   @Module({
     controllers: [IssuesController],
     providers: [
       JwtAuthGuard,
-      { provide: IssuesService, useValue: issues },
+      { provide: IssueServiceAdapter, useValue: issues },
     ],
   })
   class GatewayTransitionTestModule {}

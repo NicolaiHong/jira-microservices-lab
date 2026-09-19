@@ -2,32 +2,19 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { AppException } from '../common/errors/app.exception';
 import { ProjectsService } from './projects.service';
-import { IssuesService } from './issues.service';
-import { NotificationsService } from './notifications.service';
 import { AuthService } from './auth.service';
 import { ProjectServiceAdapter } from '../infrastructure/http-clients/project-service.adapter';
-import { IssueServiceAdapter } from '../infrastructure/http-clients/issue-service.adapter';
-import { NotificationServiceAdapter } from '../infrastructure/http-clients/notification-service.adapter';
 import { IamServiceAdapter } from '../infrastructure/http-clients/iam-service.adapter';
 import { RedisRateLimitAdapter } from '../infrastructure/rate-limit/redis-rate-limit.adapter';
 
-test('domain routing services require identity and forward context and errors without alteration', async () => {
+test('projects service requires identity and forwards context and errors without alteration', async () => {
   const calls: unknown[][] = [];
   const error = new AppException(409, 'CONFLICT', 'conflict');
   const forward = async (...args: unknown[]) => { calls.push(args); throw error; };
   const project = new ProjectsService({ getProject: forward } as unknown as ProjectServiceAdapter, {} as RedisRateLimitAdapter);
-  const issue = new IssuesService({ getIssue: forward } as unknown as IssueServiceAdapter);
-  const notification = new NotificationsService({ markRead: forward } as unknown as NotificationServiceAdapter);
-  const operations = [
-    (userId?: string) => project.getProject('id', userId, 'correlation'),
-    (userId?: string) => issue.getIssue('id', userId, 'correlation'),
-    (userId?: string) => notification.markRead('id', userId, 'correlation'),
-  ];
-  for (const operation of operations) {
-    assert.throws(() => operation(), (e: unknown) => e instanceof AppException && e.statusCode === 401);
-    await assert.rejects(operation('user'), (e: unknown) => e === error);
-  }
-  assert.deepEqual(calls, operations.map(() => ['id', { userId: 'user', correlationId: 'correlation' }]));
+  assert.throws(() => project.getProject('id', undefined, 'correlation'), (e: unknown) => e instanceof AppException && e.statusCode === 401);
+  await assert.rejects(project.getProject('id', 'user', 'correlation'), (e: unknown) => e === error);
+  assert.deepEqual(calls, [['id', { userId: 'user', correlationId: 'correlation' }]]);
 });
 
 test('auth applies registration, login and refresh limits before forwarding and preserves the cookie token body', async () => {
