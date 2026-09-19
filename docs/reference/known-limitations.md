@@ -15,3 +15,4 @@
 - An outbox event abandoned after 20 failed publish attempts is not requeued automatically, and it blocks every later event of the same Issue until an operator resets it with the SQL in [Health API](../api/health.md#issue-service-health). Events of other Issues keep publishing ([ADR 0004](../decisions/0004-outbox-claim-and-per-aggregate-ordering.md)).
 - Issue events are ordered per Issue only, and each Issue advances at most one event per two-second publisher poll.
 - The Board offers button-based legal status moves only. Drag-and-drop status movement is intentionally not implemented.
+- All services share one `INTERNAL_SERVICE_SECRET`. Project, Issue and Notification Services trust `x-authenticated-user-id` on any request that carries that secret, so a compromised service can call another service as any user. There are no per-service credentials or mTLS.
