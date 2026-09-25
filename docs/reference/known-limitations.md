@@ -2,7 +2,7 @@
 
 ## VERIFIED
 
-- The active issue list endpoint has no query filters, pagination, or server-side search.
+- The issue list filters by status, assignee, sprint, and summary substring only; it has no sort options, priority or key filter, or full-text search. Board and Backlog follow `nextCursor` to load their complete list, one request per 50 issues ([ADR 0005](../decisions/0005-issue-list-pagination-and-filtering.md)).
 - Notification delivery is asynchronous and at-least-once; Redis projection idempotency avoids duplicate event/recipient notifications, but exactly-once delivery is not claimed.
 - Notification records expire after 90 days in Redis.
 - Members are added only by the email of an already-registered account; there is no invitation flow.

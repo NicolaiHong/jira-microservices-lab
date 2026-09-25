@@ -46,6 +46,24 @@ A workspace member can manage epics and active sprints for a visible active proj
 
 Recipients identified on emitted issue events can list their own notifications and mark one or all as read. Re-delivered events must not duplicate a recipient's notification.
 
-### SEARCH-001 — Search and filter issues
+### SEARCH-001 — Filter and page the project issue list
 
-**OPEN QUESTION.** No server-side search/filtering requirement or implementation exists. Do not treat client-side board filters as a search API.
+A user who can view a project's issues (ISSUE-001) can filter the project issue list on the server and read it one page at a time. `GET /api/projects/{projectId}/issues` accepts these optional query parameters:
+
+- `status` — `TODO`, `IN_PROGRESS`, or `DONE`;
+- `assigneeUserId` — the UUID of the assigned user;
+- `sprintId` — the UUID of the linked sprint;
+- `q` — text matched case-insensitively anywhere in the issue summary;
+- `limit` — page size from 1 to 50, default 25;
+- `cursor` — the opaque `nextCursor` value returned with the previous page.
+
+Supplied filters combine with AND. Issues are ordered by `(created_at, id)`, newest first. The response is `{ items, nextCursor }`, and `nextCursor` is `null` on the last page. Read permission is the same as for ISSUE-001. Design: [ADR 0005](../decisions/0005-issue-list-pagination-and-filtering.md).
+
+**Acceptance criteria:**
+
+- Without parameters, a page holds at most 25 issues, and `nextCursor` is non-null only when more issues follow.
+- Following `nextCursor` until it is `null` returns every issue that existed when the first page was requested exactly once, including when issues are created between two page requests.
+- `status`, `assigneeUserId`, `sprintId`, and `q` each return only matching issues, and combining them returns only issues that match all of them.
+- `q` matches regardless of letter case and treats `%` and `_` as literal characters.
+- An invalid `status`, UUID, or `limit`, a blank `q` or one longer than 200 characters, an unknown or repeated parameter, or a malformed `cursor` returns `400 VALIDATION_ERROR`.
+- A caller without read access to the project receives the same error as for an unfiltered list.

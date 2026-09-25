@@ -11,6 +11,7 @@ Define the verified scope of this Jira-like project and issue-management MVP.
 - Project creation, retrieval, update, listing, and archival within a workspace.
 - Issues with project-scoped keys, assignment, a fixed three-state workflow, comments, history, and optimistic concurrency protection.
 - Epics, one active sprint per project, and completed-sprint lifecycle.
+- Server-side filtering of the project issue list by status, assignee, sprint, and summary text, with cursor pagination (SEARCH-001).
 - Asynchronous notifications derived from issue events.
 - A Next.js client for authentication, workspace/project selection, backlog, board, issue detail, roadmap, and notifications.
 
@@ -18,7 +19,7 @@ Define the verified scope of this Jira-like project and issue-management MVP.
 
 - Workspace deletion, project restoration, user administration/blocking UI, and member invitations for unregistered emails.
 - Issue deletion, comment editing/deletion, attachments, labels, estimates, releases, and configurable workflows.
-- Server-side issue search, filtering, sorting, or pagination. The board has client-side status/priority UI filters only.
+- Issue list sort options, priority or key filters, a full-text search engine, and notification pagination. The board's text search (key and summary) and priority filter run in the browser over the complete issue list.
 - WebSocket notification delivery; the client polls every five seconds.
 
 ## OPEN QUESTION

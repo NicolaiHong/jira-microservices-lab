@@ -6,7 +6,7 @@ Core work-item creation, retrieval, update, assignment, and fixed workflow.
 
 ## Related Requirements
 
-ISSUE-001, ISSUE-002.
+ISSUE-001, ISSUE-002, SEARCH-001.
 
 ## Related Business Flows
 
@@ -26,7 +26,7 @@ Issue, sequence, history, outbox in `issue_db`; React Query Issue and Project ca
 
 ## API Usage
 
-See [issues API](../api/issues.md).
+See [issues API](../api/issues.md). The project list is filtered and paged on the server; Board and Backlog follow `nextCursor` until they hold their complete list, and Backlog requests only the active sprint's issues ([ADR 0005](../decisions/0005-issue-list-pagination-and-filtering.md)).
 
 ## Validation
 
@@ -50,7 +50,7 @@ Checked-in Issue Service domain/application/PostgreSQL lifecycle tests, Gateway 
 
 ## Known Limitations
 
-No delete, labels, attachments, estimates, pagination, server filters, configurable workflow, transition idempotency-key guarantee, or Board drag-and-drop.
+No delete, labels, attachments, estimates, list sort options, priority or key filters, configurable workflow, transition idempotency-key guarantee, or Board drag-and-drop.
 
 ## Open Questions
 
