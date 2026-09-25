@@ -5,13 +5,22 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 import { AuthController } from './auth.controller';
 import { AuthService } from '../../services/auth.service';
 import { AppException } from '../../common/errors/app.exception';
+import { assertContract } from '../../testing/contracts';
+
+// The IAM refresh body the controller reads refreshToken from.
+const iamSession = {
+  accessToken: 'access',
+  refreshToken: 'rotated',
+  user: { id: 'c3d2e1f0-a9b8-4c7d-8e6f-5a4b3c2d1e0f', email: 'member@example.test', roles: ['MEMBER'] },
+};
+assertContract('http/iam.schema.json#/$defs/sessionResponse', iamSession);
 
 function fixture(fail = false) {
   const calls: unknown[] = [];
   const headers = new Map<string, string>();
   const service = {
     logout: async (body: unknown) => { calls.push(body); if (fail) throw new Error('IAM unavailable'); },
-    refresh: async (body: unknown) => { calls.push(body); if (fail) throw new Error('IAM unavailable'); return { accessToken: 'access', refreshToken: 'rotated', user: { id: 'user' } }; },
+    refresh: async (body: unknown) => { calls.push(body); if (fail) throw new Error('IAM unavailable'); return iamSession; },
   } as unknown as AuthService;
   const reply = { header: (name: string, value: string) => headers.set(name, value) } as unknown as FastifyReply;
   const request = { headers: { cookie: 'other=value; refresh_token=session%2Btoken', 'x-correlation-id': 'correlation' } } as unknown as FastifyRequest;
@@ -38,7 +47,7 @@ test('refresh forwards the cookie and returns a rotated HttpOnly cookie without 
   const f = fixture();
   const result = await f.controller.refresh(f.request, f.reply);
   assert.deepEqual(f.calls, [{ refreshToken: 'session+token' }]);
-  assert.deepEqual(result, { accessToken: 'access', user: { id: 'user' } });
+  assert.deepEqual(result, { accessToken: iamSession.accessToken, user: iamSession.user });
   assert.match(f.headers.get('set-cookie')!, /refresh_token=rotated; HttpOnly/);
 });
 

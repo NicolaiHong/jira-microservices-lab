@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import test from 'node:test';
 import { Pool } from 'pg';
 import { IssueApplicationService } from '../application/issue-application.service';
+import { PlanningApplicationService } from '../application/planning-application.service';
 import type {
   NewIssueData,
   PlanningRepository,
@@ -12,8 +13,11 @@ import type {
 } from '../application/ports';
 import { DomainError } from '../domain/errors';
 import type { Issue } from '../domain/issue';
+import { assertContract } from '../testing/contracts';
 import { Database } from './database';
+import { OutboxPublisher } from './outbox.publisher';
 import { PostgresIssueRepository } from './postgres-issue.repository';
+import { PostgresPlanningRepository } from './postgres-planning.repository';
 
 const testDatabaseUrl = process.env.ISSUE_SERVICE_TEST_DATABASE_URL;
 const reporterUserId = '11111111-1111-4111-8111-111111111111';
@@ -638,6 +642,65 @@ test(
         (await repository.claimPendingEvents(50)).map((event) => event.eventId),
         [v2],
       );
+    });
+
+    await t.test('HTTP bodies and published Kafka envelopes match the shared contracts', async () => {
+      await database.query('UPDATE outbox_events SET published_at = NOW() WHERE published_at IS NULL');
+      const planningRepository = new PostgresPlanningRepository(database);
+      const access = activeProjectAccess();
+      const issues = new IssueApplicationService(repository, planningRepository, access);
+      const planning = new PlanningApplicationService(planningRepository, access);
+      // Controllers return these results unchanged; Fastify writes them with JSON.stringify.
+      const expectBody = <T>(definition: string, result: T): T => {
+        assertContract(`http/issue.schema.json#/$defs/${definition}`, JSON.parse(JSON.stringify(result)));
+        return result;
+      };
+      const projectId = randomUUID();
+      const assigneeUserId = '22222222-2222-4222-8222-222222222222';
+
+      const { epic } = expectBody('epicResponse', await planning.createEpic(projectId, { name: 'Launch', startDate: '2026-10-01', targetDate: '2026-10-31' }, requestContext));
+      expectBody('epicResponse', await planning.updateEpic(epic.id, { color: 'green' }, requestContext));
+      expectBody('epicList', await planning.listEpics(projectId, requestContext));
+      const { sprint } = expectBody('sprintResponse', await planning.createSprint(projectId, { name: 'Sprint 1', goal: 'Ship it' }, requestContext));
+      expectBody('sprintList', await planning.listSprints(projectId, requestContext));
+
+      let { issue } = expectBody('issueResponse', await issues.createIssue(projectId, {
+        summary: 'Contract issue', description: 'Checked against issue.schema.json', type: 'story', priority: 'high',
+        assigneeUserId, epicId: epic.id, sprintId: sprint.id,
+      }, requestContext));
+      expectBody('issueList', await issues.listIssues(projectId, requestContext));
+      expectBody('issueResponse', await issues.getIssue(issue.id, requestContext));
+      ({ issue } = expectBody('issueResponse', await issues.updateIssue(issue.id, { summary: 'Renamed', expectedVersion: issue.version }, requestContext)));
+      ({ issue } = expectBody('issueResponse', await issues.assignIssue(issue.id, { assigneeUserId: null, expectedVersion: issue.version }, requestContext)));
+      ({ issue } = expectBody('issueResponse', await issues.assignIssue(issue.id, { assigneeUserId, expectedVersion: issue.version }, requestContext)));
+      ({ issue } = expectBody('issueResponse', await issues.transitionIssue(issue.id, { status: 'IN_PROGRESS', expectedVersion: issue.version }, requestContext)));
+      expectBody('commentResponse', await issues.addComment(issue.id, { body: 'Contract comment' }, requestContext));
+      expectBody('commentList', await issues.listComments(issue.id, requestContext));
+      expectBody('historyList', await issues.listHistory(issue.id, requestContext));
+      expectBody('sprintResponse', await planning.completeSprint(sprint.id, requestContext));
+
+      const sent: Array<{ key: string; value: string }> = [];
+      const publisher = new OutboxPublisher(repository);
+      Object.defineProperty(publisher, 'producer', { value: {
+        connect: async () => {},
+        send: async (batch: { messages: Array<{ key: string; value: string }> }) => { sent.push(...batch.messages); },
+      } });
+      Object.defineProperty(publisher, 'logger', { value: { log: () => {}, warn: () => {}, error: () => {} } });
+      // One event per Issue per poll (ADR 0004); poll until the outbox is drained.
+      for (let polls = 0, before = -1; before !== sent.length && polls < 20; polls += 1) {
+        before = sent.length;
+        await (publisher as unknown as { publishBatch(): Promise<void> }).publishBatch();
+      }
+
+      const envelopes = sent.map((message) => {
+        const envelope = JSON.parse(message.value) as { aggregateId: string; eventType: string };
+        assertContract('events/issue-event-v1.schema.json', envelope);
+        assert.equal(message.key, envelope.aggregateId);
+        return envelope;
+      });
+      assert.deepEqual(envelopes.map((envelope) => envelope.eventType), [
+        'issue.created', 'issue.updated', 'issue.assigned', 'issue.assigned', 'issue.transitioned', 'issue.commented',
+      ]);
     });
   },
 );

@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jira-like.local/contracts/http/error.schema.json",
+  "title": "Error envelope",
+  "description": "Failure body of every service and of the Gateway (docs/api/errors.md, docs/api/conventions.md). Callers branch on code, never on message.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["code", "message", "correlationId", "details"],
+  "properties": {
+    "code": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]*$" },
+    "message": { "type": "string" },
+    "correlationId": { "type": "string", "minLength": 1 },
+    "details": { "type": "object" }
+  }
+}

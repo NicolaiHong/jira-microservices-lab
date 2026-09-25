@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jira-like.local/contracts/http/project.schema.json",
+  "title": "Project Service responses",
+  "description": "Bodies of the /internal routes Gateway forwards unchanged (docs/api/workspaces.md, docs/api/projects.md) and the internal access-context route that Issue Service and Notification Service call.",
+  "$defs": {
+    "uuid": { "type": "string", "format": "uuid" },
+    "role": { "enum": ["OWNER", "ADMIN", "MEMBER"] },
+    "workspace": {
+      "type": "object",
+      "required": ["id", "name", "slug"],
+      "properties": {
+        "id": { "$ref": "#/$defs/uuid" },
+        "name": { "type": "string", "minLength": 1 },
+        "slug": { "type": "string", "minLength": 1 }
+      }
+    },
+    "workspaceResponse": {
+      "description": "POST /internal/workspaces -> 201 { workspace }",
+      "type": "object",
+      "required": ["workspace"],
+      "properties": { "workspace": { "$ref": "#/$defs/workspace" } }
+    },
+    "workspaceList": {
+      "description": "GET /internal/workspaces -> 200 { items }",
+      "type": "object",
+      "required": ["items"],
+      "properties": { "items": { "type": "array", "items": { "$ref": "#/$defs/workspace" } } }
+    },
+    "member": {
+      "type": "object",
+      "required": ["userId", "role"],
+      "properties": {
+        "userId": { "$ref": "#/$defs/uuid" },
+        "role": { "$ref": "#/$defs/role" }
+      }
+    },
+    "memberResponse": {
+      "description": "POST /internal/workspaces/{id}/members -> 201 { member }; PATCH .../members/{userId} -> 200 { member }",
+      "type": "object",
+      "required": ["member"],
+      "properties": { "member": { "$ref": "#/$defs/member" } }
+    },
+    "memberList": {
+      "description": "GET /internal/workspaces/{id}/members -> 200 { items: [{ userId, email, role, joinedAt, updatedAt }] }; email is null when IAM has no account",
+      "type": "object",
+      "required": ["items"],
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["userId", "email", "role", "joinedAt", "updatedAt"],
+            "properties": {
+              "userId": { "$ref": "#/$defs/uuid" },
+              "email": { "type": ["string", "null"] },
+              "role": { "$ref": "#/$defs/role" },
+              "joinedAt": { "type": "string", "format": "date-time" },
+              "updatedAt": { "type": "string", "format": "date-time" }
+            }
+          }
+        }
+      }
+    },
+    "project": {
+      "description": "GET /internal/projects/{projectId} -> 200 project object",
+      "type": "object",
+      "required": ["id", "workspaceId", "name", "key", "description", "status"],
+      "properties": {
+        "id": { "$ref": "#/$defs/uuid" },
+        "workspaceId": { "$ref": "#/$defs/uuid" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "key": { "type": "string", "pattern": "^[A-Z0-9]{1,20}$" },
+        "description": { "type": ["string", "null"] },
+        "status": { "enum": ["ACTIVE", "ARCHIVED"] }
+      }
+    },
+    "projectResponse": {
+      "description": "POST /internal/workspaces/{id}/projects -> 201 { project }; PATCH /internal/projects/{projectId} -> 200 { project }",
+      "type": "object",
+      "required": ["project"],
+      "properties": { "project": { "$ref": "#/$defs/project" } }
+    },
+    "projectList": {
+      "description": "GET /internal/workspaces/{id}/projects -> 200 { items }",
+      "type": "object",
+      "required": ["items"],
+      "properties": { "items": { "type": "array", "items": { "$ref": "#/$defs/project" } } }
+    },
+    "accessContext": {
+      "description": "GET /internal/projects/{projectId}/access-context -> 200. A nonexistent project or a current non-member gets 404 PROJECT_NOT_FOUND in the error envelope.",
+      "type": "object",
+      "required": ["projectId", "workspaceId", "projectKey", "projectStatus", "membershipRole"],
+      "properties": {
+        "projectId": { "$ref": "#/$defs/uuid" },
+        "workspaceId": { "$ref": "#/$defs/uuid" },
+        "projectKey": { "type": "string", "minLength": 1 },
+        "projectStatus": { "enum": ["ACTIVE", "ARCHIVED"] },
+        "membershipRole": { "$ref": "#/$defs/role" }
+      }
+    }
+  }
+}
