@@ -2,6 +2,7 @@
 set -euo pipefail
 
 gateway_url="${GATEWAY_URL:-http://localhost:3000}"
+web_url="${WEB_URL:-http://localhost:3001}"
 suffix="$(date +%s%3N)"
 password='Learning123!'
 owner_email="owner-${suffix}@example.com"
@@ -23,6 +24,9 @@ until [[ "$(curl -sS "$gateway_url/health/services" 2>/dev/null | jq -r '.status
   (( SECONDS < ready_deadline )) || { echo "Services did not report ok:" >&2; curl -sS "$gateway_url/health/services" >&2 || true; exit 1; }
   sleep 3
 done
+
+web_status="$(curl -sS -o /dev/null -w '%{http_code}' "$web_url/login")"
+[[ "$web_status" == "200" ]] || { echo "Web client GET /login returned $web_status" >&2; exit 1; }
 
 owner="$(call_api POST /api/auth/register "{\"email\":\"$owner_email\",\"password\":\"$password\"}")"
 member="$(call_api POST /api/auth/register "{\"email\":\"$member_email\",\"password\":\"$password\"}")"

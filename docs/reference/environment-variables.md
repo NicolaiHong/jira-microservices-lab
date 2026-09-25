@@ -16,4 +16,4 @@ Runtime configuration from Compose and service examples. Never commit actual sec
 | `PROJECT_SERVICE_URL` | Issue, Notification | Project Service base URL for internal access-context checks |
 | `IAM_SERVICE_URL` | Gateway, Project | IAM base URL; Project uses it for member identity lookup ([ADR 0003](../decisions/0003-workspace-member-identity-lookup.md)) |
 | `CORS_ALLOWED_ORIGINS` | Gateway | Permitted web-client origins |
-| `NEXT_PUBLIC_API_GATEWAY_URL` | Web client | Browser gateway base URL |
+| `NEXT_PUBLIC_API_GATEWAY_URL` | Web client (build arg) | Gateway base URL the browser calls. Next inlines it into the bundle at `next build`, so Compose passes it as a build arg, not a runtime variable, and a change requires rebuilding the image. It is a host URL because the browser runs on the host. The default is `http://localhost:${API_GATEWAY_PORT:-3000}`. Never put a secret in a `NEXT_PUBLIC_*` variable |
