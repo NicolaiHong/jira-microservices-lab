@@ -43,9 +43,6 @@ export function Backlog({
   const activeSprint = sprints.find((sprint) => sprint.status === "ACTIVE");
   const createSprint = useCreateSprint(projectId);
   const completeSprint = useCompleteSprint(projectId);
-  const displayedIssues = activeSprint
-    ? issues.filter((issue) => issue.sprintId === activeSprint.id)
-    : issues;
 
   async function startSprint(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -132,8 +129,8 @@ export function Backlog({
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          {displayedIssues.length ? (
-            displayedIssues.map((issue) => (
+          {issues.length ? (
+            issues.map((issue) => (
               <div
                 className="group flex min-h-11 items-center gap-3 border-b border-border px-4 py-2 text-sm last:border-b-0 hover:bg-muted/55"
                 key={issue.id}
@@ -219,8 +216,8 @@ export function Backlog({
                 "Start a sprint when the team is ready to commit."}
             </p>
             <p>
-              {displayedIssues.length}{" "}
-              {displayedIssues.length === 1 ? "issue" : "issues"} ·{" "}
+              {issues.length}{" "}
+              {issues.length === 1 ? "issue" : "issues"} ·{" "}
               {sprints.filter((sprint) => sprint.status === "COMPLETED").length}{" "}
               completed
             </p>

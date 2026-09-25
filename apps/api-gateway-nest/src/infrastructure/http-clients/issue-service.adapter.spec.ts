@@ -82,14 +82,14 @@ test('forwards Issue Core expectedVersion bodies with identity, correlation, and
   globalThis.fetch = (async (input, init) => {
     requests.push({ input: String(input), init });
     return String(input).endsWith('/issues') && init?.method === 'GET'
-      ? issueServiceResponse('issueList', { items: [issue] })
+      ? issueServiceResponse('issueList', { items: [issue], nextCursor: null })
       : issueServiceResponse('issueResponse', { issue }, init?.method === 'POST' ? 201 : 200);
   }) as typeof fetch;
 
   try {
     const adapter = new IssueServiceAdapter();
     assert.deepEqual(await adapter.createIssue('project 1', { summary: 'Created' }, context), { issue });
-    assert.deepEqual(await adapter.listIssues('project 1', context), { items: [issue] });
+    assert.deepEqual(await adapter.listIssues('project 1', '', context), { items: [issue], nextCursor: null });
     assert.deepEqual(await adapter.getIssue('issue 1', context), { issue });
     assert.deepEqual(await adapter.updateIssue('issue 1', { summary: 'Changed', expectedVersion: 3 }, context), { issue });
     assert.deepEqual(await adapter.assignIssue('issue 1', { assigneeUserId: null, expectedVersion: 4 }, context), { issue });
@@ -136,6 +136,81 @@ test('forwards Issue Core expectedVersion bodies with identity, correlation, and
       assert.equal(headers.get('x-correlation-id'), context.correlationId);
       assert.equal(headers.get('x-internal-service-secret'), 'test-internal-secret');
     }
+  } finally {
+    globalThis.fetch = originalFetch;
+    restore();
+  }
+});
+
+test('forwards the issue list query string unchanged and returns the page body as is', async () => {
+  const restore = configureEnvironment();
+  const originalFetch = globalThis.fetch;
+  const requests: Array<{ input: string; init?: RequestInit }> = [];
+  const page = { items: [issue], nextCursor: 'MjAyNi0wOS0yNVQwODowMDowMC4wMDAwMDBafDdkNmM1YjRh' };
+  globalThis.fetch = (async (input, init) => {
+    requests.push({ input: String(input), init });
+    return issueServiceResponse('issueList', page);
+  }) as typeof fetch;
+
+  try {
+    const adapter = new IssueServiceAdapter();
+    const query = `status=todo&assigneeUserId=${USER_ID}&q=Login%20%25_bug&limit=10&cursor=${page.nextCursor}&limit=11&unknown=1`;
+    assert.deepEqual(await adapter.listIssues(PROJECT_ID, query, context), page);
+    assert.deepEqual(await adapter.listIssues(PROJECT_ID, '', context), page);
+
+    assert.deepEqual(
+      requests.map(({ input, init }) => ({ input, method: init?.method, body: init?.body })),
+      [
+        {
+          input: `http://issue-service.test/internal/projects/${PROJECT_ID}/issues?${query}`,
+          method: 'GET',
+          body: undefined,
+        },
+        {
+          input: `http://issue-service.test/internal/projects/${PROJECT_ID}/issues`,
+          method: 'GET',
+          body: undefined,
+        },
+      ],
+    );
+    for (const request of requests) {
+      const headers = new Headers(request.init?.headers);
+      assert.equal(headers.get('x-authenticated-user-id'), context.userId);
+      assert.equal(headers.get('x-correlation-id'), context.correlationId);
+      assert.equal(headers.get('x-internal-service-secret'), 'test-internal-secret');
+    }
+  } finally {
+    globalThis.fetch = originalFetch;
+    restore();
+  }
+});
+
+test('preserves an Issue Service list validation error without retrying', async () => {
+  const restore = configureEnvironment();
+  const originalFetch = globalThis.fetch;
+  let fetchCalls = 0;
+  globalThis.fetch = (async () => {
+    fetchCalls += 1;
+    return issueServiceError(400, 'VALIDATION_ERROR', 'Request validation failed', {
+      cursor: 'cursor is not a valid issue list cursor',
+    });
+  }) as typeof fetch;
+
+  try {
+    await assert.rejects(
+      new IssueServiceAdapter().listIssues(PROJECT_ID, 'cursor=broken', context),
+      (error: unknown) => {
+        assert.ok(error instanceof Error);
+        assert.equal((error as Error & { statusCode?: number }).statusCode, 400);
+        assert.equal((error as Error & { code?: string }).code, 'VALIDATION_ERROR');
+        assert.deepEqual(
+          (error as Error & { details?: Record<string, unknown> }).details,
+          { cursor: 'cursor is not a valid issue list cursor' },
+        );
+        return true;
+      },
+    );
+    assert.equal(fetchCalls, 1);
   } finally {
     globalThis.fetch = originalFetch;
     restore();

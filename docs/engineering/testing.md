@@ -16,7 +16,7 @@ Issue lifecycle verification includes checked-in Issue Service domain/applicatio
 
 The CI `e2e-compose` job builds and starts the Compose stack, runs `scripts/smoke-full-flow.sh` through the Gateway, and uploads Compose logs on failure. The smoke script waits until `/health/services` reports `ok`, requires `GET http://localhost:3001/login` on the web client to return `200`, then requires an `issue.transitioned` notification for the created issue to arrive through Kafka.
 
-The PostgreSQL lifecycle suite must use `ISSUE_SERVICE_TEST_DATABASE_URL` for the dedicated disposable `issue_test_db` only. It refuses to reset `issue_db`. CI runs the suite against that test database and verifies same-version transition concurrency plus failure rollback; it is not an optional release gate.
+The PostgreSQL lifecycle suite must use `ISSUE_SERVICE_TEST_DATABASE_URL` for the dedicated disposable `issue_test_db` only. It refuses to reset `issue_db`. CI runs the suite against that test database and verifies same-version transition concurrency, failure rollback, and issue list filters, limits, and cursor stability while issues are created between pages; it is not an optional release gate.
 
 ## Contract tests
 

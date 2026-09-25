@@ -42,7 +42,13 @@ interface CommentActivityCall {
 class RecordingIssueServiceAdapter {
   readonly calls: TransitionCall[] = [];
   readonly commentActivityCalls: CommentActivityCall[] = [];
+  readonly listCalls: Array<{ projectId: string; query: string; userId: string }> = [];
   nextError: AppException | undefined;
+
+  listIssues(projectId: string, query: string, { userId }: RequestContext) {
+    this.listCalls.push({ projectId, query, userId });
+    return { items: [], nextCursor: null };
+  }
 
   transitionIssue(
     issueId: string,
@@ -208,6 +214,34 @@ test('routes transition requests through JWT authentication and the public error
         assert.equal(issues.calls.length, callsBeforeRequest);
       }
     });
+  } finally {
+    await app.close();
+    restore();
+  }
+});
+
+test('forwards the raw issue list query string after JWT authentication', async () => {
+  const restore = configureJwtEnvironment();
+  const issues = new RecordingIssueServiceAdapter();
+  const app = await createGatewayApp(issues);
+  const headers = { authorization: `Bearer ${signedAccessToken(60)}` };
+
+  try {
+    const query = 'status=todo&q=Login%20bug%3F&limit=999&limit=2&cursor=abc_-';
+    const paged = await inject(app, { method: 'GET', url: `/api/projects/project-1/issues?${query}`, headers });
+    const plain = await inject(app, { method: 'GET', url: '/api/projects/project-1/issues', headers });
+
+    assert.equal(paged.statusCode, 200);
+    assert.deepEqual(JSON.parse(paged.body), { items: [], nextCursor: null });
+    assert.equal(plain.statusCode, 200);
+    assert.deepEqual(issues.listCalls, [
+      { projectId: 'project-1', query, userId: 'member-123' },
+      { projectId: 'project-1', query: '', userId: 'member-123' },
+    ]);
+
+    const unauthenticated = await inject(app, { method: 'GET', url: `/api/projects/project-1/issues?${query}` });
+    assert.equal(unauthenticated.statusCode, 401);
+    assert.equal(issues.listCalls.length, 2);
   } finally {
     await app.close();
     restore();

@@ -10,4 +10,4 @@ Current cross-service HTTP conventions.
 - JSON uses camelCase and successful resources are endpoint-specific rather than globally enveloped.
 - Validated error responses use `{ code, message, correlationId, details }`; do not return stack traces or credentials.
 - Current APIs are unversioned. A versioning decision is **OPEN QUESTION** before external stability is promised.
-- There are no implemented query filter/pagination/sort parameters for issues or notifications.
+- The project issue list is the only route with query filters and pagination: it pages with an opaque `cursor`/`nextCursor` pair ([Issues API](issues.md#issue-list)). No route has sort parameters, and notifications are not paginated.

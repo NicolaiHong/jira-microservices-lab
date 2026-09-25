@@ -16,7 +16,9 @@ export class IssuesController {
 
   @Get('projects/:projectId/issues')
   listIssues(@Param('projectId') projectId: string, @Req() request: AuthenticatedRequest) {
-    return this.issues.listIssues(projectId, this.context(request));
+    const queryStart = request.url.indexOf('?');
+    const query = queryStart === -1 ? '' : request.url.slice(queryStart + 1);
+    return this.issues.listIssues(projectId, query, this.context(request));
   }
 
   @Get('issues/:issueId')

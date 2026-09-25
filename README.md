@@ -120,5 +120,6 @@ scripts/                    Health checks and smoke flows
 ## Current scope
 
 This is an MVP and learning project. It intentionally does not yet include
-features such as issue deletion, labels, attachments, estimates, server-side
-search/filtering, configurable workflows, or real-time notification delivery.
+features such as issue deletion, labels, attachments, estimates, issue sort
+options, full-text search, configurable workflows, or real-time notification
+delivery.

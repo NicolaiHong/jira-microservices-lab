@@ -4,16 +4,20 @@ import { QueryError } from "@/components/shared/QueryError";
 import { useParams } from "next/navigation";
 
 import { Backlog } from "@/features/issue/components/Backlog";
-import { useIssues } from "@/features/issue/hooks/useIssues";
-import { useEpics, useSprints } from "@/features/issue/hooks/useIssues";
+import { useEpics, useIssues, useSprints } from "@/features/issue/hooks/useIssues";
 import { ProjectNavigation } from "@/components/shared/ProjectNavigation";
 import { useProject } from "@/features/project/hooks/useProjects";
 
 export default function ProjectBacklogPage() {
   const { projectId } = useParams<{ projectId: string }>();
-  const issuesQuery = useIssues(projectId);
   const epicsQuery = useEpics(projectId);
   const sprintsQuery = useSprints(projectId);
+  const activeSprint = sprintsQuery.data?.find((sprint) => sprint.status === "ACTIVE");
+  // The sprint list decides whether the server returns one sprint or the whole project.
+  const issuesQuery = useIssues(
+    sprintsQuery.isSuccess ? projectId : undefined,
+    activeSprint ? { sprintId: activeSprint.id } : {},
+  );
   const projectQuery = useProject(projectId);
   const issues = issuesQuery.data ?? [];
 
