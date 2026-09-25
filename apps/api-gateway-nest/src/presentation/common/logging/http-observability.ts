@@ -14,6 +14,8 @@ export function configureHttpObservability(
   fastify.addHook('onRequest', (request, reply, done) => {
     const correlationId = getCorrelationId(request);
     requestStartedAt.set(request, Date.now());
+    // The HTTP server span reads the ID from the raw request when it ends.
+    request.headers['x-correlation-id'] = correlationId;
     reply.header('x-correlation-id', correlationId);
     done();
   });
