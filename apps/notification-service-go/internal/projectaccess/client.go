@@ -10,6 +10,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 const projectNotFoundCode = "PROJECT_NOT_FOUND"
@@ -75,7 +77,10 @@ func NewClient(projectServiceURL, internalServiceSecret string, timeout time.Dur
 		baseURL: parsedURL,
 		secret:  internalServiceSecret,
 		http: &http.Client{
-			Timeout: timeout,
+			// Continues the caller's trace in Project Service (ADR 0006); it
+			// records no headers.
+			Transport: otelhttp.NewTransport(http.DefaultTransport),
+			Timeout:   timeout,
 			CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
 				return http.ErrUseLastResponse
 			},

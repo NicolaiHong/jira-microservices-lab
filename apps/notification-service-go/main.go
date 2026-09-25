@@ -17,9 +17,19 @@ import (
 	"github.com/example/jira-like-polyglot-microservices/notification-service/internal/consumer"
 	"github.com/example/jira-like-polyglot-microservices/notification-service/internal/projectaccess"
 	"github.com/example/jira-like-polyglot-microservices/notification-service/internal/store"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
+	"go.opentelemetry.io/otel/propagation"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 )
 
 func main() {
+	shutdownTracing, err := setupTracing(context.Background())
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer shutdownTracing()
+
 	redisStore, err := store.NewRedisStore(env("REDIS_URL", "redis://localhost:6379"))
 	if err != nil {
 		log.Fatal(err)
@@ -91,6 +101,29 @@ func main() {
 	if err := eventConsumer.Close(); err != nil {
 		log.Printf("notification consumer shutdown failed: %v", err)
 	}
+}
+
+// setupTracing exports spans over OTLP/HTTP when OTEL_EXPORTER_OTLP_ENDPOINT is
+// set (ADR 0006). The exporter and the resource read the endpoint and
+// OTEL_SERVICE_NAME from the environment. Without an endpoint tracing stays off.
+func setupTracing(ctx context.Context) (func(), error) {
+	if env("OTEL_EXPORTER_OTLP_ENDPOINT", "") == "" {
+		return func() {}, nil
+	}
+	exporter, err := otlptracehttp.New(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("create OTLP trace exporter: %w", err)
+	}
+	provider := sdktrace.NewTracerProvider(sdktrace.WithBatcher(exporter))
+	otel.SetTracerProvider(provider)
+	otel.SetTextMapPropagator(propagation.TraceContext{})
+	return func() {
+		shutdownContext, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := provider.Shutdown(shutdownContext); err != nil {
+			log.Printf("tracing shutdown failed: %v", err)
+		}
+	}, nil
 }
 
 func env(name string, fallback string) string {
