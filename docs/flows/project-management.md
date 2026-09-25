@@ -61,7 +61,7 @@ Members can read; owners/admins manage. See [matrix](../reference/permissions-ma
 
 ## UI Entry Points
 
-`/projects` lists and creates projects. **OPEN QUESTION:** no verified project-update/archive UI exists.
+`/projects` lists and creates projects. On each active project card, an owner or admin can edit the name and description (the key is not editable) and archive the project after a confirmation that states archiving cannot be undone. Archived projects show an `Archived` badge, keep their link to the project pages, and offer no edit or archive control. Members see no management controls; the UI hides them by workspace role and Project Service still enforces authorization.
 
 ## Validation
 

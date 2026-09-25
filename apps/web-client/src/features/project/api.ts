@@ -5,6 +5,7 @@ import type {
   CreateWorkspacePayload,
   ListResponse,
   Project,
+  UpdateProjectPayload,
   Workspace,
   WorkspaceMember,
   WorkspaceRole,
@@ -46,6 +47,22 @@ export async function createProject(
 export async function getProject(projectId: string): Promise<Project> {
   const { data } = await http.get<Project>(`/api/projects/${projectId}`);
   return data;
+}
+
+export async function updateProject(
+  projectId: string,
+  payload: UpdateProjectPayload,
+): Promise<Project> {
+  const { data } = await http.patch<{ project: Project }>(
+    `/api/projects/${projectId}`,
+    payload,
+  );
+  return data.project;
+}
+
+/** DELETE archives the project; there is no restore endpoint. */
+export async function archiveProject(projectId: string): Promise<void> {
+  await http.delete(`/api/projects/${projectId}`);
 }
 
 export async function listWorkspaceMembers(
