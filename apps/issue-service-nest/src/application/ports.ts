@@ -58,6 +58,14 @@ export interface OutboxEvent {
   payload: Record<string, unknown>;
 }
 
+/**
+ * A claimed event plus the W3C trace context of the request that wrote it.
+ * The trace context is Kafka header metadata, never part of the envelope.
+ */
+export interface ClaimedOutboxEvent extends OutboxEvent {
+  traceContext: Record<string, string> | null;
+}
+
 export interface IssueListFilter {
   status?: IssueStatus;
   assigneeUserId?: string;
@@ -110,7 +118,7 @@ export interface IssueRepository {
   ): Promise<IssueComment>;
   listComments(issueId: string): Promise<IssueComment[]>;
   listHistory(issueId: string): Promise<IssueHistory[]>;
-  claimPendingEvents(limit: number): Promise<OutboxEvent[]>;
+  claimPendingEvents(limit: number): Promise<ClaimedOutboxEvent[]>;
   markEventsPublished(eventIds: string[]): Promise<void>;
   recordPublishFailure(
     eventId: string,

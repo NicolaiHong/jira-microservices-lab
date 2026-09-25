@@ -1,13 +1,14 @@
 import { randomUUID } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
+import { context, propagation } from '@opentelemetry/api';
 import type { PoolClient } from 'pg';
 import type {
+  ClaimedOutboxEvent,
   IssueListFilter,
   IssueListPage,
   IssueListPosition,
   IssueRepository,
   NewIssueData,
-  OutboxEvent,
   OutboxStatus,
   UpdateIssueData,
 } from '../application/ports';
@@ -73,6 +74,7 @@ interface OutboxRow {
   actor_user_id: string;
   payload: Record<string, unknown>;
   occurred_at: Date;
+  trace_context: Record<string, string> | null;
 }
 
 @Injectable()
@@ -369,7 +371,7 @@ export class PostgresIssueRepository implements IssueRepository {
     }));
   }
 
-  async claimPendingEvents(limit: number): Promise<OutboxEvent[]> {
+  async claimPendingEvents(limit: number): Promise<ClaimedOutboxEvent[]> {
     // Leases due events that have no earlier unpublished event for the same
     // aggregate (ADR 0004). The lease exceeds a Kafka send, so no transaction
     // stays open while publishing; an expired lease makes the event due again.
@@ -395,7 +397,7 @@ export class PostgresIssueRepository implements IssueRepository {
          FOR UPDATE SKIP LOCKED
        )
        RETURNING event_id, event_type, aggregate_id, aggregate_version,
-                 project_id, actor_user_id, payload, occurred_at`,
+                 project_id, actor_user_id, payload, occurred_at, trace_context`,
       [limit, OUTBOX_MAX_PUBLISH_ATTEMPTS, OUTBOX_CLAIM_LEASE_SECONDS],
     );
     return result.rows
@@ -413,6 +415,7 @@ export class PostgresIssueRepository implements IssueRepository {
         actorUserId: row.actor_user_id,
         occurredAt: row.occurred_at.toISOString(),
         payload: row.payload,
+        traceContext: row.trace_context,
       }));
   }
 
@@ -516,11 +519,16 @@ export class PostgresIssueRepository implements IssueRepository {
     eventType: string,
     payload: Record<string, unknown>,
   ): Promise<void> {
+    // The publisher restores this context so the Kafka send joins the
+    // request's trace (ADR 0006); it stays empty when tracing is off.
+    const traceContext: Record<string, string> = {};
+    propagation.inject(context.active(), traceContext);
     await client.query(
       `INSERT INTO outbox_events (
          event_id, event_type, schema_version, aggregate_id,
-         aggregate_version, project_id, actor_user_id, payload, occurred_at
-       ) VALUES ($1,$2,1,$3,$4,$5,$6,$7,$8)`,
+         aggregate_version, project_id, actor_user_id, payload, occurred_at,
+         trace_context
+       ) VALUES ($1,$2,1,$3,$4,$5,$6,$7,$8,$9)`,
       [
         randomUUID(),
         eventType,
@@ -530,6 +538,7 @@ export class PostgresIssueRepository implements IssueRepository {
         actorUserId,
         payload,
         new Date(),
+        Object.keys(traceContext).length > 0 ? traceContext : null,
       ],
     );
   }

@@ -5,9 +5,11 @@ import {
   OnModuleDestroy,
   OnModuleInit,
 } from '@nestjs/common';
+import { context, propagation, ROOT_CONTEXT } from '@opentelemetry/api';
 import { Kafka, type Producer } from 'kafkajs';
 import {
   ISSUE_REPOSITORY,
+  type ClaimedOutboxEvent,
   type IssueRepository,
 } from '../application/ports';
 
@@ -59,21 +61,19 @@ export class OutboxPublisher implements OnModuleInit, OnModuleDestroy {
       }
       const events = await this.issues.claimPendingEvents(50);
       if (events.length === 0) return;
-      try {
-        await this.producer.send({
-          topic: process.env.ISSUE_EVENTS_TOPIC ?? 'issue.events.v1',
-          messages: events.map((event) => ({
-            key: event.aggregateId,
-            value: JSON.stringify({ ...event, schemaVersion: 1 }),
-          })),
-        });
-      } catch (error) {
-        // A batch can have partial broker delivery. Keep every row pending;
-        // deterministic event IDs make retries safe for the consumer.
+      // A poll claims at most one event per issue (ADR 0004), so sending the
+      // events concurrently keeps per-issue order.
+      const sends = await Promise.allSettled(events.map((event) => this.send(event)));
+      const failed = sends.find(
+        (send): send is PromiseRejectedResult => send.status === 'rejected',
+      );
+      if (failed) {
+        // Other sends of the batch may have been delivered. Keep every row
+        // pending; deterministic event IDs make retries safe for the consumer.
         for (const event of events) {
-          await this.recordFailure(event.eventId, error);
+          await this.recordFailure(event.eventId, failed.reason);
         }
-        throw error;
+        throw failed.reason;
       }
       try {
         await this.issues.markEventsPublished(events.map((event) => event.eventId));
@@ -116,6 +116,21 @@ export class OutboxPublisher implements OnModuleInit, OnModuleDestroy {
     } finally {
       this.running = false;
     }
+  }
+
+  // Sends under the trace context stored with the event, so the kafkajs
+  // producer span continues the writing request's trace and puts its
+  // traceparent into the record headers (ADR 0006). The envelope never
+  // carries the trace context.
+  private send({ traceContext, ...event }: ClaimedOutboxEvent): Promise<unknown> {
+    return context.with(propagation.extract(ROOT_CONTEXT, traceContext ?? {}), () =>
+      this.producer.send({
+        topic: process.env.ISSUE_EVENTS_TOPIC ?? 'issue.events.v1',
+        messages: [
+          { key: event.aggregateId, value: JSON.stringify({ ...event, schemaVersion: 1 }) },
+        ],
+      }),
+    );
   }
 
   private async recordFailure(eventId: string, error: unknown): Promise<void> {
