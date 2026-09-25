@@ -35,3 +35,16 @@ auth:
     audience: ${JWT_AUDIENCE:jira-like-api}
   refresh-token:
     ttl-days: ${REFRESH_TOKEN_TTL_DAYS:30}
+
+# Tracing (ADR 0006). IamServiceApplication turns it off, or points it at the
+# OTLP endpoint, from OTEL_EXPORTER_OTLP_ENDPOINT.
+management:
+  server:
+    # Tracing needs Actuator's auto-configuration, not its HTTP endpoints.
+    port: -1
+  tracing:
+    sampling:
+      probability: 1.0
+  opentelemetry:
+    resource-attributes:
+      "[service.name]": ${OTEL_SERVICE_NAME:iam-service}
