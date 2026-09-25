@@ -149,7 +149,7 @@ jobs:
           INTERNAL_SERVICE_SECRET: ci-compose-contract-placeholder
           JWT_SECRET: ci-compose-contract-jwt-secret-placeholder
         run: docker compose -f infra/docker-compose/docker-compose.yml config --quiet
-      - run: jq empty contracts/events/issue-event-v1.schema.json contracts/health.schema.json
+      - run: jq empty contracts/*.json contracts/*/*.json
 
   e2e-compose:
     runs-on: ubuntu-latest

@@ -1,8 +1,44 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { IssueServiceAdapter } from './issue-service.adapter';
+import { assertContract } from '../../testing/contracts';
 
 const context = { userId: 'user-123', correlationId: 'request-123' };
+const PROJECT_ID = '5a4c1f8e-2b7d-4e3a-8c61-9d0e7f6a5b42';
+const USER_ID = 'c3d2e1f0-a9b8-4c7d-8e6f-5a4b3c2d1e0f';
+const issue = {
+  id: '7d6c5b4a-3f2e-4d1c-8b0a-9f8e7d6c5b4a', projectId: PROJECT_ID, number: 1, key: 'LRN-1',
+  summary: 'Created', description: null, type: 'TASK', priority: 'MEDIUM', status: 'IN_PROGRESS',
+  reporterUserId: USER_ID, assigneeUserId: null, epicId: null, sprintId: null, version: 2,
+  createdAt: '2026-09-25T08:00:00.000Z', updatedAt: '2026-09-25T08:00:00.000Z',
+};
+const comment = {
+  id: '1e2d3c4b-5a69-4788-9a0b-c1d2e3f4a5b6', issueId: issue.id, authorUserId: USER_ID,
+  body: 'A gateway-forwarded comment', createdAt: '2026-09-25T08:00:00.000Z', updatedAt: '2026-09-25T08:00:00.000Z',
+};
+const history = {
+  id: '2f3e4d5c-6b7a-4899-8a0b-1c2d3e4f5a6b', issueId: issue.id, actorUserId: USER_ID,
+  action: 'COMMENT_ADDED', fromValue: null, toValue: { commentId: comment.id }, createdAt: '2026-09-25T08:00:00.000Z',
+};
+const epic = {
+  id: '3a4b5c6d-7e8f-4a0b-9c1d-2e3f4a5b6c7d', projectId: PROJECT_ID, name: 'Launch', color: 'BLUE',
+  startDate: null, targetDate: null, createdAt: '2026-09-25T08:00:00.000Z', updatedAt: '2026-09-25T08:00:00.000Z',
+};
+const sprint = {
+  id: '4b5c6d7e-8f9a-4b1c-8d2e-3f4a5b6c7d8e', projectId: PROJECT_ID, name: 'Sprint 1', goal: null,
+  startDate: null, endDate: null, status: 'ACTIVE', createdAt: '2026-09-25T08:00:00.000Z', completedAt: null,
+};
+
+function issueServiceResponse(definition: string, body: unknown, status = 200): Response {
+  assertContract(`http/issue.schema.json#/$defs/${definition}`, body);
+  return new Response(JSON.stringify(body), { status });
+}
+
+function issueServiceError(status: number, code: string, message: string, details: Record<string, unknown>): Response {
+  const envelope = { code, message, correlationId: context.correlationId, details };
+  assertContract('http/error.schema.json', envelope);
+  return new Response(JSON.stringify(envelope), { status });
+}
 
 test('forwards an opaque transition body to the exact Issue Service route without the browser bearer token', async () => {
   const restore = configureEnvironment();
@@ -15,11 +51,11 @@ test('forwards an opaque transition body to the exact Issue Service route withou
   };
   globalThis.fetch = (async (input, init) => {
     requests.push({ input: String(input), init });
-    return new Response(JSON.stringify({ issue: { id: 'issue-123' } }), { status: 200 });
+    return issueServiceResponse('issueResponse', { issue });
   }) as typeof fetch;
 
   try {
-    await new IssueServiceAdapter().transitionIssue('issue / 1', transition, context);
+    assert.deepEqual(await new IssueServiceAdapter().transitionIssue('issue / 1', transition, context), { issue });
 
     assert.equal(requests.length, 1);
     const request = requests[0];
@@ -45,17 +81,19 @@ test('forwards Issue Core expectedVersion bodies with identity, correlation, and
   const requests: Array<{ input: string; init?: RequestInit }> = [];
   globalThis.fetch = (async (input, init) => {
     requests.push({ input: String(input), init });
-    return new Response(JSON.stringify({ issue: { id: 'issue-123' } }), { status: 200 });
+    return String(input).endsWith('/issues') && init?.method === 'GET'
+      ? issueServiceResponse('issueList', { items: [issue] })
+      : issueServiceResponse('issueResponse', { issue }, init?.method === 'POST' ? 201 : 200);
   }) as typeof fetch;
 
   try {
     const adapter = new IssueServiceAdapter();
-    await adapter.createIssue('project 1', { summary: 'Created' }, context);
-    await adapter.listIssues('project 1', context);
-    await adapter.getIssue('issue 1', context);
-    await adapter.updateIssue('issue 1', { summary: 'Changed', expectedVersion: 3 }, context);
-    await adapter.assignIssue('issue 1', { assigneeUserId: null, expectedVersion: 4 }, context);
-    await adapter.transitionIssue('issue 1', { status: 'IN_PROGRESS', expectedVersion: 5 }, context);
+    assert.deepEqual(await adapter.createIssue('project 1', { summary: 'Created' }, context), { issue });
+    assert.deepEqual(await adapter.listIssues('project 1', context), { items: [issue] });
+    assert.deepEqual(await adapter.getIssue('issue 1', context), { issue });
+    assert.deepEqual(await adapter.updateIssue('issue 1', { summary: 'Changed', expectedVersion: 3 }, context), { issue });
+    assert.deepEqual(await adapter.assignIssue('issue 1', { assigneeUserId: null, expectedVersion: 4 }, context), { issue });
+    assert.deepEqual(await adapter.transitionIssue('issue 1', { status: 'IN_PROGRESS', expectedVersion: 5 }, context), { issue });
 
     assert.deepEqual(
       requests.map(({ input, init }) => ({ input, method: init?.method, body: init?.body })),
@@ -108,17 +146,22 @@ test('forwards comment and activity routes with the body and internal request co
   const restore = configureEnvironment();
   const originalFetch = globalThis.fetch;
   const requests: Array<{ input: string; init?: RequestInit }> = [];
+  const responses = [
+    () => issueServiceResponse('commentResponse', { comment }, 201),
+    () => issueServiceResponse('commentList', { items: [comment] }),
+    () => issueServiceResponse('historyList', { items: [history] }),
+  ];
   globalThis.fetch = (async (input, init) => {
     requests.push({ input: String(input), init });
-    return new Response(JSON.stringify({ items: [] }), { status: 200 });
+    return responses[requests.length - 1]();
   }) as typeof fetch;
 
   try {
     const adapter = new IssueServiceAdapter();
-    const comment = { body: 'A gateway-forwarded comment' };
-    await adapter.addComment('issue / 1', comment, context);
-    await adapter.listComments('issue / 1', context);
-    await adapter.listHistory('issue / 1', context);
+    const body = { body: 'A gateway-forwarded comment' };
+    assert.deepEqual(await adapter.addComment('issue / 1', body, context), { comment });
+    assert.deepEqual(await adapter.listComments('issue / 1', context), { items: [comment] });
+    assert.deepEqual(await adapter.listHistory('issue / 1', context), { items: [history] });
 
     assert.deepEqual(
       requests.map(({ input, init }) => ({ input, method: init?.method, body: init?.body })),
@@ -126,7 +169,7 @@ test('forwards comment and activity routes with the body and internal request co
         {
           input: 'http://issue-service.test/internal/issues/issue%20%2F%201/comments',
           method: 'POST',
-          body: JSON.stringify(comment),
+          body: JSON.stringify(body),
         },
         {
           input: 'http://issue-service.test/internal/issues/issue%20%2F%201/comments',
@@ -159,14 +202,7 @@ test('preserves downstream comment errors without a retry', async () => {
   let fetchCalls = 0;
   globalThis.fetch = (async () => {
     fetchCalls += 1;
-    return new Response(
-      JSON.stringify({
-        code: 'CONCURRENT_ISSUE_MODIFICATION',
-        message: 'Issue changed since it was last loaded',
-        details: { source: 'issue-service' },
-      }),
-      { status: 409 },
-    );
+    return issueServiceError(409, 'CONCURRENT_ISSUE_MODIFICATION', 'Issue changed since it was last loaded', { source: 'issue-service' });
   }) as typeof fetch;
 
   try {
@@ -195,14 +231,7 @@ test('preserves a downstream 409 and documents Issue Service unavailability as 5
   const originalFetch = globalThis.fetch;
   try {
     globalThis.fetch = (async () =>
-      new Response(
-        JSON.stringify({
-          code: 'CONCURRENT_ISSUE_MODIFICATION',
-          message: 'Issue changed since it was last loaded',
-          details: {},
-        }),
-        { status: 409 },
-      )) as typeof fetch;
+      issueServiceError(409, 'CONCURRENT_ISSUE_MODIFICATION', 'Issue changed since it was last loaded', {})) as typeof fetch;
     await assert.rejects(
       new IssueServiceAdapter().updateIssue('issue-123', { expectedVersion: 1 }, context),
       (error: unknown) => {
@@ -243,14 +272,7 @@ test('preserves each documented transition conflict code without retrying', asyn
       let fetchCalls = 0;
       globalThis.fetch = (async () => {
         fetchCalls += 1;
-        return new Response(
-          JSON.stringify({
-            code,
-            message: `${code} from Issue Service`,
-            details: { source: 'issue-service' },
-          }),
-          { status: 409 },
-        );
+        return issueServiceError(409, code, `${code} from Issue Service`, { source: 'issue-service' });
       }) as typeof fetch;
 
       await assert.rejects(
@@ -302,6 +324,46 @@ test('maps a transition transport failure to one stable 503 without retrying', a
       },
     );
     assert.equal(fetchCalls, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+    restore();
+  }
+});
+
+test('forwards planning routes and returns contract-valid Issue Service bodies unchanged', async () => {
+  const restore = configureEnvironment();
+  const originalFetch = globalThis.fetch;
+  const requests: string[] = [];
+  const completed = { ...sprint, status: 'COMPLETED', completedAt: '2026-09-26T08:00:00.000Z' };
+  const responses = [
+    () => issueServiceResponse('epicList', { items: [epic] }),
+    () => issueServiceResponse('epicResponse', { epic }, 201),
+    () => issueServiceResponse('epicResponse', { epic }),
+    () => issueServiceResponse('sprintList', { items: [sprint] }),
+    () => issueServiceResponse('sprintResponse', { sprint }, 201),
+    () => issueServiceResponse('sprintResponse', { sprint: completed }),
+  ];
+  globalThis.fetch = (async (input, init) => {
+    requests.push(`${init?.method} ${String(input)}`);
+    return responses[requests.length - 1]();
+  }) as typeof fetch;
+
+  try {
+    const adapter = new IssueServiceAdapter();
+    assert.deepEqual(await adapter.listEpics('project 1', context), { items: [epic] });
+    assert.deepEqual(await adapter.createEpic('project 1', { name: 'Launch' }, context), { epic });
+    assert.deepEqual(await adapter.updateEpic('epic 1', { color: 'BLUE' }, context), { epic });
+    assert.deepEqual(await adapter.listSprints('project 1', context), { items: [sprint] });
+    assert.deepEqual(await adapter.createSprint('project 1', { name: 'Sprint 1' }, context), { sprint });
+    assert.deepEqual(await adapter.completeSprint('sprint 1', context), { sprint: completed });
+    assert.deepEqual(requests, [
+      'GET http://issue-service.test/internal/projects/project%201/epics',
+      'POST http://issue-service.test/internal/projects/project%201/epics',
+      'PATCH http://issue-service.test/internal/epics/epic%201',
+      'GET http://issue-service.test/internal/projects/project%201/sprints',
+      'POST http://issue-service.test/internal/projects/project%201/sprints',
+      'POST http://issue-service.test/internal/sprints/sprint%201/complete',
+    ]);
   } finally {
     globalThis.fetch = originalFetch;
     restore();

@@ -16,6 +16,7 @@ import type { RequestContext } from '../../infrastructure/http-clients/internal-
 import { ApiExceptionFilter } from '../common/filters/api-exception.filter';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { IssuesController } from './issues.controller';
+import { assertContract } from '../../testing/contracts';
 
 const jwtConfiguration = {
   secret: 'gateway-transition-test-secret-32-bytes',
@@ -170,6 +171,7 @@ test('routes transition requests through JWT authentication and the public error
         });
 
         assert.equal(response.statusCode, 409);
+        assertContract('http/error.schema.json', JSON.parse(response.body));
         assert.deepEqual(JSON.parse(response.body), {
           code,
           message: `${code} from Issue Service`,
@@ -198,6 +200,7 @@ test('routes transition requests through JWT authentication and the public error
         });
 
         assert.equal(response.statusCode, 401);
+        assertContract('http/error.schema.json', JSON.parse(response.body));
         assert.equal(
           (JSON.parse(response.body) as { code: string }).code,
           expectedCode,

@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jira-like.local/contracts/http/notification.schema.json",
+  "title": "Notification Service responses",
+  "description": "Bodies of the /internal routes Gateway forwards unchanged (docs/api/notifications.md). PATCH .../read and POST /read-all return 204 without a body.",
+  "$defs": {
+    "notificationList": {
+      "description": "GET /internal/notifications -> 200 { items }, at most the 100 most recent records of the caller",
+      "type": "object",
+      "required": ["items"],
+      "properties": {
+        "items": {
+          "type": "array",
+          "maxItems": 100,
+          "items": {
+            "type": "object",
+            "required": ["id"],
+            "properties": {
+              "id": { "type": "string", "minLength": 1 }
+            }
+          }
+        }
+      }
+    }
+  }
+}

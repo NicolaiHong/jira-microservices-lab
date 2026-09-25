@@ -1,6 +1,22 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { ProjectServiceAdapter } from './project-service.adapter';
+import { assertContract } from '../../testing/contracts';
+
+const WORKSPACE_ID = '0b9f2f3c-6f1e-4c0a-9a57-3f0c2d9d2a11';
+const PROJECT_ID = '5a4c1f8e-2b7d-4e3a-8c61-9d0e7f6a5b42';
+const USER_ID = 'c3d2e1f0-a9b8-4c7d-8e6f-5a4b3c2d1e0f';
+const project = {
+  id: PROJECT_ID, workspaceId: WORKSPACE_ID, name: 'Learning', key: 'LRN',
+  description: null, status: 'ACTIVE', createdByUserId: USER_ID,
+  createdAt: '2026-09-25T08:00:00.000+00:00', updatedAt: '2026-09-25T08:00:00.000+00:00',
+};
+const member = { userId: USER_ID, role: 'MEMBER', joinedAt: '2026-09-25T08:00:00.000+00:00', updatedAt: '2026-09-25T08:00:00.000+00:00' };
+
+function projectServiceResponse(definition: string, body: unknown, status = 200): Response {
+  assertContract(`http/project.schema.json#/$defs/${definition}`, body);
+  return new Response(JSON.stringify(body), { status });
+}
 
 test('forwards authenticated user, correlation ID, and internal credential to Project Service', async () => {
   const originalFetch = globalThis.fetch;
@@ -8,6 +24,7 @@ test('forwards authenticated user, correlation ID, and internal credential to Pr
   const originalSecret = process.env.INTERNAL_SERVICE_SECRET;
   process.env.PROJECT_SERVICE_URL = 'http://project-service.test';
   process.env.INTERNAL_SERVICE_SECRET = 'unchanged-internal-secret';
+  const workspace = { id: WORKSPACE_ID, name: 'Team', slug: 'team', ownerUserId: USER_ID, createdAt: '2026-09-25T08:00:00.000+00:00' };
 
   globalThis.fetch = (async (input, init) => {
     assert.equal(input, 'http://project-service.test/internal/workspaces');
@@ -22,10 +39,7 @@ test('forwards authenticated user, correlation ID, and internal credential to Pr
     assert.equal(headers.get('content-type'), 'application/json');
     assert.equal(init?.body, JSON.stringify({ name: 'Team', slug: 'team' }));
 
-    return new Response(
-      JSON.stringify({ workspace: { id: 'workspace-123' } }),
-      { status: 201 },
-    );
+    return projectServiceResponse('workspaceResponse', { workspace }, 201);
   }) as typeof fetch;
 
   try {
@@ -36,7 +50,7 @@ test('forwards authenticated user, correlation ID, and internal credential to Pr
       { userId: 'user-123', correlationId: 'req-workspace-123' },
     );
 
-    assert.deepEqual(response, { workspace: { id: 'workspace-123' } });
+    assert.deepEqual(response, { workspace });
   } finally {
     globalThis.fetch = originalFetch;
     restoreEnvironmentVariable('PROJECT_SERVICE_URL', originalUrl);
@@ -57,6 +71,17 @@ test('forwards the complete Project lifecycle through the internal contract', as
     body?: BodyInit | null;
   }> = [];
 
+  // One contract-valid Project Service response per adapter call below, in order.
+  const responses: Array<() => Response> = [
+    () => projectServiceResponse('projectResponse', { project }, 201),
+    () => projectServiceResponse('projectList', { items: [project] }),
+    () => projectServiceResponse('project', project),
+    () => projectServiceResponse('projectResponse', { project }),
+    () => new Response(null, { status: 204 }),
+    () => projectServiceResponse('memberList', { items: [{ ...member, email: null }] }),
+    () => projectServiceResponse('memberResponse', { member }, 201),
+  ];
+
   globalThis.fetch = (async (input, init) => {
     requests.push({
       path: String(input),
@@ -64,22 +89,20 @@ test('forwards the complete Project lifecycle through the internal contract', as
       headers: new Headers(init?.headers),
       body: init?.body,
     });
-    return init?.method === 'DELETE'
-      ? new Response(null, { status: 204 })
-      : new Response(JSON.stringify({ ok: true }), { status: 200 });
+    return responses[requests.length - 1]();
   }) as typeof fetch;
 
   try {
     const adapter = new ProjectServiceAdapter();
     const context = { userId: 'user-456', correlationId: 'req-project-456' };
 
-    await adapter.createProject('workspace 1', { name: 'Learning', key: 'LRN' }, context);
-    await adapter.listProjects('workspace 1', context);
-    await adapter.getProject('project 1', context);
-    await adapter.updateProject('project 1', { description: null }, context);
+    assert.deepEqual(await adapter.createProject('workspace 1', { name: 'Learning', key: 'LRN' }, context), { project });
+    assert.deepEqual(await adapter.listProjects('workspace 1', context), { items: [project] });
+    assert.deepEqual(await adapter.getProject('project 1', context), project);
+    assert.deepEqual(await adapter.updateProject('project 1', { description: null }, context), { project });
     await adapter.archiveProject('project 1', context);
-    await adapter.listWorkspaceMembers('workspace 1', context);
-    await adapter.addWorkspaceMember('workspace 1', { email: 'a@example.test', role: 'MEMBER' }, context);
+    assert.deepEqual(await adapter.listWorkspaceMembers('workspace 1', context), { items: [{ ...member, email: null }] });
+    assert.deepEqual(await adapter.addWorkspaceMember('workspace 1', { email: 'a@example.test', role: 'MEMBER' }, context), { member });
 
     assert.deepEqual(
       requests.map((request) => ({
@@ -141,15 +164,15 @@ test('preserves a downstream Project error response', async () => {
   const originalFetch = globalThis.fetch;
   const originalUrl = process.env.PROJECT_SERVICE_URL;
   process.env.PROJECT_SERVICE_URL = 'http://project-service.test';
+  const envelope = {
+    code: 'PROJECT_NAME_ALREADY_EXISTS',
+    message: 'Project name already exists inside this workspace',
+    correlationId: 'req-1',
+    details: { name: 'duplicate' },
+  };
+  assertContract('http/error.schema.json', envelope);
   globalThis.fetch = (async () =>
-    new Response(
-      JSON.stringify({
-        code: 'PROJECT_NAME_ALREADY_EXISTS',
-        message: 'Project name already exists inside this workspace',
-        details: { name: 'duplicate' },
-      }),
-      { status: 409 },
-    )) as typeof fetch;
+    new Response(JSON.stringify(envelope), { status: 409 })) as typeof fetch;
 
   try {
     const adapter = new ProjectServiceAdapter();
@@ -163,6 +186,7 @@ test('preserves a downstream Project error response', async () => {
         assert.ok(error instanceof Error);
         assert.equal((error as Error & { statusCode?: number }).statusCode, 409);
         assert.equal((error as Error & { code?: string }).code, 'PROJECT_NAME_ALREADY_EXISTS');
+        assert.deepEqual((error as Error & { details?: unknown }).details, { name: 'duplicate' });
         return true;
       },
     );

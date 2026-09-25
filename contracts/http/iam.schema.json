@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jira-like.local/contracts/http/iam.schema.json",
+  "title": "IAM Service responses read by Gateway",
+  "description": "IAM /auth/* bodies behind the public routes in docs/api/authentication.md. Login and refresh carry refreshToken in the body; Gateway moves it into the HttpOnly cookie and strips it from the public response.",
+  "$defs": {
+    "user": {
+      "description": "IAM account identity: id and email (ADR 0003).",
+      "type": "object",
+      "required": ["id", "email"],
+      "properties": {
+        "id": { "type": "string", "format": "uuid" },
+        "email": { "type": "string", "minLength": 1 }
+      }
+    },
+    "registerResponse": {
+      "description": "POST /auth/register -> 201 { user }",
+      "type": "object",
+      "required": ["user"],
+      "properties": {
+        "user": { "$ref": "#/$defs/user" }
+      }
+    },
+    "sessionResponse": {
+      "description": "POST /auth/login and POST /auth/refresh -> 200 { accessToken, refreshToken, user }",
+      "type": "object",
+      "required": ["accessToken", "refreshToken", "user"],
+      "properties": {
+        "accessToken": { "type": "string", "minLength": 1 },
+        "refreshToken": { "type": "string", "minLength": 1 },
+        "user": { "$ref": "#/$defs/user" }
+      }
+    }
+  }
+}

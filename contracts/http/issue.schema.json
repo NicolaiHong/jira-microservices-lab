@@ -1,0 +1,131 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://jira-like.local/contracts/http/issue.schema.json",
+  "title": "Issue Service responses",
+  "description": "Bodies of the /internal routes Gateway forwards unchanged (docs/api/issues.md, docs/api/comments.md, docs/api/planning.md).",
+  "$defs": {
+    "uuid": { "type": "string", "format": "uuid" },
+    "nullableUuid": { "type": ["string", "null"], "format": "uuid" },
+    "nullableString": { "type": ["string", "null"] },
+    "issue": {
+      "type": "object",
+      "required": [
+        "id", "projectId", "key", "number", "summary", "description", "type", "priority",
+        "status", "reporterUserId", "assigneeUserId", "epicId", "sprintId", "version"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/uuid" },
+        "projectId": { "$ref": "#/$defs/uuid" },
+        "key": { "type": "string", "minLength": 1 },
+        "number": { "type": "integer", "minimum": 1 },
+        "summary": { "type": "string", "minLength": 1 },
+        "description": { "type": ["string", "null"], "maxLength": 5000 },
+        "type": { "enum": ["TASK", "BUG", "STORY"] },
+        "priority": { "enum": ["LOW", "MEDIUM", "HIGH", "CRITICAL"] },
+        "status": { "enum": ["TODO", "IN_PROGRESS", "DONE"] },
+        "reporterUserId": { "$ref": "#/$defs/uuid" },
+        "assigneeUserId": { "$ref": "#/$defs/nullableUuid" },
+        "epicId": { "$ref": "#/$defs/nullableUuid" },
+        "sprintId": { "$ref": "#/$defs/nullableUuid" },
+        "version": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "issueResponse": {
+      "description": "POST /internal/projects/{projectId}/issues -> 201; GET, PATCH /internal/issues/{issueId}, PATCH .../assignee, POST .../transitions -> 200 { issue }",
+      "type": "object",
+      "required": ["issue"],
+      "properties": { "issue": { "$ref": "#/$defs/issue" } }
+    },
+    "issueList": {
+      "description": "GET /internal/projects/{projectId}/issues -> 200 { items }",
+      "type": "object",
+      "required": ["items"],
+      "properties": { "items": { "type": "array", "items": { "$ref": "#/$defs/issue" } } }
+    },
+    "comment": {
+      "type": "object",
+      "required": ["id", "body"],
+      "properties": {
+        "id": { "$ref": "#/$defs/uuid" },
+        "body": { "type": "string", "minLength": 1, "maxLength": 5000 }
+      }
+    },
+    "commentResponse": {
+      "description": "POST /internal/issues/{issueId}/comments -> 201 { comment }",
+      "type": "object",
+      "required": ["comment"],
+      "properties": { "comment": { "$ref": "#/$defs/comment" } }
+    },
+    "commentList": {
+      "description": "GET /internal/issues/{issueId}/comments -> 200 { items }",
+      "type": "object",
+      "required": ["items"],
+      "properties": { "items": { "type": "array", "items": { "$ref": "#/$defs/comment" } } }
+    },
+    "historyList": {
+      "description": "GET /internal/issues/{issueId}/history -> 200 { items }; each entry records one server action such as STATUS_CHANGED or COMMENT_ADDED",
+      "type": "object",
+      "required": ["items"],
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "action"],
+            "properties": {
+              "id": { "$ref": "#/$defs/uuid" },
+              "action": { "type": "string", "minLength": 1 }
+            }
+          }
+        }
+      }
+    },
+    "epic": {
+      "type": "object",
+      "required": ["id", "name", "color", "startDate", "targetDate"],
+      "properties": {
+        "id": { "$ref": "#/$defs/uuid" },
+        "name": { "type": "string", "minLength": 1 },
+        "color": { "enum": ["PURPLE", "BLUE", "GREEN", "YELLOW", "ORANGE"] },
+        "startDate": { "$ref": "#/$defs/nullableString" },
+        "targetDate": { "$ref": "#/$defs/nullableString" }
+      }
+    },
+    "epicResponse": {
+      "description": "POST /internal/projects/{projectId}/epics -> 201; PATCH /internal/epics/{epicId} -> 200 { epic }",
+      "type": "object",
+      "required": ["epic"],
+      "properties": { "epic": { "$ref": "#/$defs/epic" } }
+    },
+    "epicList": {
+      "description": "GET /internal/projects/{projectId}/epics -> 200 { items }",
+      "type": "object",
+      "required": ["items"],
+      "properties": { "items": { "type": "array", "items": { "$ref": "#/$defs/epic" } } }
+    },
+    "sprint": {
+      "type": "object",
+      "required": ["id", "name", "goal", "startDate", "endDate", "status"],
+      "properties": {
+        "id": { "$ref": "#/$defs/uuid" },
+        "name": { "type": "string", "minLength": 1 },
+        "goal": { "$ref": "#/$defs/nullableString" },
+        "startDate": { "$ref": "#/$defs/nullableString" },
+        "endDate": { "$ref": "#/$defs/nullableString" },
+        "status": { "enum": ["ACTIVE", "COMPLETED"] }
+      }
+    },
+    "sprintResponse": {
+      "description": "POST /internal/projects/{projectId}/sprints -> 201; POST /internal/sprints/{sprintId}/complete -> 200 { sprint }",
+      "type": "object",
+      "required": ["sprint"],
+      "properties": { "sprint": { "$ref": "#/$defs/sprint" } }
+    },
+    "sprintList": {
+      "description": "GET /internal/projects/{projectId}/sprints -> 200 { items }",
+      "type": "object",
+      "required": ["items"],
+      "properties": { "items": { "type": "array", "items": { "$ref": "#/$defs/sprint" } } }
+    }
+  }
+}
