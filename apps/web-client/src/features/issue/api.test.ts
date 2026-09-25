@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/http", () => ({
   http: {
+    get: vi.fn(),
     patch: vi.fn(),
     post: vi.fn(),
   },
@@ -13,6 +14,7 @@ import {
   assignIssue,
   createIssue,
   isConcurrentIssueModification,
+  listIssues,
   transitionIssue,
   updateIssue,
 } from "./api";
@@ -117,5 +119,38 @@ describe("Issue Core API client", () => {
         response: { status: 409, data: { code: "PROJECT_ARCHIVED" } },
       }),
     ).toBe(false);
+  });
+});
+
+describe("Issue list API client", () => {
+  beforeEach(() => {
+    vi.mocked(http.get).mockReset();
+  });
+
+  it("follows nextCursor with the same filters and page size until the last page", async () => {
+    const second = { ...issue, id: "issue-2", key: "CORE-2" };
+    vi.mocked(http.get)
+      .mockResolvedValueOnce({ data: { items: [issue], nextCursor: "cursor-1" } })
+      .mockResolvedValueOnce({ data: { items: [second], nextCursor: null } });
+
+    await expect(listIssues("project-1", { sprintId: "sprint-1" })).resolves.toEqual([issue, second]);
+    expect(http.get).toHaveBeenCalledTimes(2);
+    expect(http.get).toHaveBeenNthCalledWith(1, "/api/projects/project-1/issues", {
+      params: { sprintId: "sprint-1", limit: 50 },
+    });
+    expect(http.get).toHaveBeenNthCalledWith(2, "/api/projects/project-1/issues", {
+      params: { sprintId: "sprint-1", limit: 50, cursor: "cursor-1" },
+    });
+  });
+
+  it("fails instead of returning a partial list when a later page fails", async () => {
+    vi.mocked(http.get)
+      .mockResolvedValueOnce({ data: { items: [issue], nextCursor: "cursor-1" } })
+      .mockRejectedValueOnce(new Error("page failed"));
+
+    await expect(listIssues("project-1")).rejects.toThrow("page failed");
+    expect(http.get).toHaveBeenNthCalledWith(1, "/api/projects/project-1/issues", {
+      params: { limit: 50 },
+    });
   });
 });

@@ -15,8 +15,10 @@ export class IssueServiceAdapter {
   createIssue(projectId: string, body: unknown, context: RequestContext) {
     return this.client.forward('POST', `/internal/projects/${this.id(projectId)}/issues`, body, context);
   }
-  listIssues(projectId: string, context: RequestContext) {
-    return this.client.forward('GET', `/internal/projects/${this.id(projectId)}/issues`, undefined, context);
+  // The query string is forwarded unchanged; Issue Service validates it (ADR 0005).
+  listIssues(projectId: string, query: string, context: RequestContext) {
+    const search = query ? `?${query}` : '';
+    return this.client.forward('GET', `/internal/projects/${this.id(projectId)}/issues${search}`, undefined, context);
   }
   getIssue(issueId: string, context: RequestContext) {
     return this.client.forward('GET', `/internal/issues/${this.id(issueId)}`, undefined, context);

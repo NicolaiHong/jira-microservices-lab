@@ -2,6 +2,9 @@ import { randomUUID } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import type { PoolClient } from 'pg';
 import type {
+  IssueListFilter,
+  IssueListPage,
+  IssueListPosition,
   IssueRepository,
   NewIssueData,
   OutboxEvent,
@@ -136,13 +139,47 @@ export class PostgresIssueRepository implements IssueRepository {
     });
   }
 
-  async listIssues(projectId: string): Promise<Issue[]> {
-    const result = await this.database.query<IssueRow>(
-      `SELECT * FROM issues WHERE project_id = $1
-       ORDER BY issue_number DESC`,
-      [projectId],
+  async listIssues(
+    projectId: string,
+    filter: IssueListFilter,
+    after: IssueListPosition | null,
+    limit: number,
+  ): Promise<IssueListPage> {
+    // Keyset page over the immutable (created_at, id) order (ADR 0005). The
+    // position is formatted by PostgreSQL because a JS Date drops microseconds.
+    const values: unknown[] = [projectId];
+    const param = (value: unknown) => `$${values.push(value)}`;
+    const where = ['project_id = $1'];
+    if (filter.status) where.push(`status = ${param(filter.status)}`);
+    if (filter.assigneeUserId) where.push(`assignee_user_id = ${param(filter.assigneeUserId)}`);
+    if (filter.sprintId) where.push(`sprint_id = ${param(filter.sprintId)}`);
+    if (filter.q) {
+      // Backslash is ILIKE's default escape character.
+      where.push(`summary ILIKE '%' || ${param(filter.q.replace(/[\\%_]/g, '\\$&'))} || '%'`);
+    }
+    if (after) {
+      where.push(
+        `(created_at, id) < (${param(after.createdAt)}::timestamptz, ${param(after.id)}::uuid)`,
+      );
+    }
+    const result = await this.database.query<IssueRow & { position_created_at: string }>(
+      `SELECT *,
+         to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS position_created_at
+       FROM issues
+       WHERE ${where.join(' AND ')}
+       ORDER BY created_at DESC, id DESC
+       LIMIT ${param(limit + 1)}`,
+      values,
     );
-    return result.rows.map((row) => this.toIssue(row));
+    const rows = result.rows.slice(0, limit);
+    const last = rows[rows.length - 1];
+    return {
+      items: rows.map((row) => this.toIssue(row)),
+      next:
+        result.rows.length > limit
+          ? { createdAt: last.position_created_at, id: last.id }
+          : null,
+    };
   }
 
   async findIssue(issueId: string): Promise<Issue | null> {

@@ -8,6 +8,7 @@ import {
   type ProjectAccessPort,
   type PlanningRepository,
 } from './ports';
+import { encodeIssueCursor, parseIssueListQuery } from './issue-list-query';
 import {
   concurrentIssueModification,
   DomainError,
@@ -76,11 +77,17 @@ export class IssueApplicationService {
 
   async listIssues(
     projectIdValue: string,
+    query: unknown,
     context: RequestContext,
   ) {
     const projectId = uuid(projectIdValue, 'projectId');
+    const { filter, limit, after } = parseIssueListQuery(query);
     await this.projects.getAccess(projectId, context.userId, context.correlationId);
-    return { items: await this.issues.listIssues(projectId) };
+    const page = await this.issues.listIssues(projectId, filter, after, limit);
+    return {
+      items: page.items,
+      nextCursor: page.next ? encodeIssueCursor(page.next) : null,
+    };
   }
 
   async getIssue(issueIdValue: string, context: RequestContext) {

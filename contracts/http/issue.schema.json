@@ -37,10 +37,13 @@
       "properties": { "issue": { "$ref": "#/$defs/issue" } }
     },
     "issueList": {
-      "description": "GET /internal/projects/{projectId}/issues -> 200 { items }",
+      "description": "GET /internal/projects/{projectId}/issues -> 200 { items, nextCursor }; nextCursor is null on the last page (ADR 0005)",
       "type": "object",
-      "required": ["items"],
-      "properties": { "items": { "type": "array", "items": { "$ref": "#/$defs/issue" } } }
+      "required": ["items", "nextCursor"],
+      "properties": {
+        "items": { "type": "array", "maxItems": 50, "items": { "$ref": "#/$defs/issue" } },
+        "nextCursor": { "type": ["string", "null"], "minLength": 1 }
+      }
     },
     "comment": {
       "type": "object",

@@ -22,9 +22,35 @@ export function isConcurrentIssueModification(error: unknown): boolean {
   return getApiErrorCode(error) === "CONCURRENT_ISSUE_MODIFICATION";
 }
 
-export async function listIssues(projectId: string): Promise<Issue[]> {
-  const { data } = await http.get<{ items: Issue[] }>(`/api/projects/${projectId}/issues`);
-  return data.items;
+export interface IssueListFilters {
+  status?: IssueStatus;
+  assigneeUserId?: string;
+  sprintId?: string;
+  q?: string;
+}
+
+interface IssuePage {
+  items: Issue[];
+  nextCursor: string | null;
+}
+
+const ISSUE_PAGE_SIZE = 50;
+
+/** Follows nextCursor to the last page, so the result is the complete list (ADR 0005). */
+// ponytail: one sequential request per 50 issues; page Board columns separately if large projects load slowly.
+export async function listIssues(projectId: string, filters: IssueListFilters = {}): Promise<Issue[]> {
+  const issues: Issue[] = [];
+  let cursor: string | null = null;
+  do {
+    const page: IssuePage = (
+      await http.get<IssuePage>(`/api/projects/${projectId}/issues`, {
+        params: { ...filters, limit: ISSUE_PAGE_SIZE, ...(cursor ? { cursor } : {}) },
+      })
+    ).data;
+    issues.push(...page.items);
+    cursor = page.nextCursor;
+  } while (cursor);
+  return issues;
 }
 
 export async function getIssue(issueId: string): Promise<Issue> {

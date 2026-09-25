@@ -644,6 +644,130 @@ test(
       );
     });
 
+    await t.test('creates the issue list indexes idempotently', async () => {
+      await assert.doesNotReject(applyMigrations(admin, ['008_issue_list_indexes.sql']));
+      const indexes = await database.query<{ indexname: string }>(
+        `SELECT indexname FROM pg_indexes
+         WHERE tablename = 'issues' AND indexname LIKE 'ix_issues_%'
+         ORDER BY indexname`,
+      );
+      for (const name of [
+        'ix_issues_project_assignee_created',
+        'ix_issues_project_created',
+        'ix_issues_project_sprint_created',
+        'ix_issues_project_status_created',
+        'ix_issues_summary_trgm',
+      ]) {
+        assert.ok(indexes.rows.some((row) => row.indexname === name), name);
+      }
+    });
+
+    await t.test('pages newest first and keeps the cursor stable when issues are created between pages', async () => {
+      const projectId = randomUUID();
+      for (let n = 1; n <= 5; n += 1) {
+        await repository.createIssue(newIssue(projectId, `Paged issue ${n}`));
+      }
+      const existing = await orderedIssueIds(database, projectId);
+      assert.equal(existing.length, 5);
+
+      const first = await application.listIssues(projectId, { limit: '2' }, requestContext);
+      assert.deepEqual(first.items.map((issue) => issue.id), existing.slice(0, 2));
+      assert.ok(first.nextCursor);
+
+      // A newer issue sorts before the first page; a backdated one lands in the unread range.
+      const newer = await repository.createIssue(newIssue(projectId, 'Created between pages'));
+      const backdated = await insertIssueRow(database, projectId, 100, {
+        createdAt: '2000-01-01T00:00:00.000001Z',
+      });
+
+      const rest = await listAll(application, projectId, { limit: '2' }, first.nextCursor);
+      const seen = [...first.items.map((issue) => issue.id), ...rest];
+      assert.deepEqual(seen, [...existing, backdated]);
+      assert.equal(new Set(seen).size, seen.length);
+      assert.ok(!seen.includes(newer.id));
+
+      const restarted = await listAll(application, projectId, { limit: '50' });
+      assert.deepEqual(restarted, [newer.id, ...existing, backdated]);
+    });
+
+    await t.test('orders equal timestamps by id and never skips issues that differ below a millisecond', async () => {
+      const projectId = randomUUID();
+      const inserted: string[] = [];
+      for (const [n, createdAt] of [
+        '2030-01-01T00:00:00.123400Z',
+        '2030-01-01T00:00:00.123456Z',
+        '2030-01-01T00:00:00.123456Z',
+        '2030-01-01T00:00:00.123456Z',
+        '2030-01-01T00:00:00.123999Z',
+        '2030-01-01T00:00:00.124000Z',
+      ].entries()) {
+        inserted.push(await insertIssueRow(database, projectId, n + 1, { createdAt }));
+      }
+
+      const expected = await orderedIssueIds(database, projectId);
+      assert.equal(expected.length, inserted.length);
+      assert.deepEqual(await listAll(application, projectId, { limit: '1' }), expected);
+      const tied = expected.slice(2, 5);
+      assert.deepEqual(tied, [...tied].sort().reverse());
+    });
+
+    await t.test('filters by status, assignee, sprint, and literal case-insensitive summary text', async () => {
+      const projectId = randomUUID();
+      const otherProjectId = randomUUID();
+      const assignee = '22222222-2222-4222-8222-222222222222';
+      const sprintId = randomUUID();
+      await database.query(
+        `INSERT INTO sprints (id, project_id, name, status, created_at)
+         VALUES ($1, $2, 'Sprint', 'ACTIVE', NOW())`,
+        [sprintId, projectId],
+      );
+      const row = (number: number, values: Parameters<typeof insertIssueRow>[3]) =>
+        insertIssueRow(database, projectId, number, values);
+      const loginBug = await row(1, { summary: 'Fix LOGIN bug', status: 'DONE', assigneeUserId: assignee, sprintId });
+      const loginCopy = await row(2, { summary: 'login page copy', status: 'DONE' });
+      const percent = await row(3, { summary: 'Reach 100% coverage', assigneeUserId: assignee });
+      const underscore = await row(4, { summary: 'Rename snake_case field', sprintId });
+      const backslash = await row(5, { summary: 'Escape C:\\temp paths', status: 'IN_PROGRESS' });
+      const plain = await row(6, { summary: 'Plain issue 1000 coverage' });
+      await insertIssueRow(database, otherProjectId, 1, { summary: 'Fix LOGIN bug elsewhere', status: 'DONE' });
+
+      const filtered = async (query: Record<string, string>) =>
+        (await listAll(application, projectId, query)).sort();
+      const ids = (...issues: string[]) => issues.sort();
+
+      assert.deepEqual(await filtered({}), ids(loginBug, loginCopy, percent, underscore, backslash, plain));
+      assert.deepEqual(await filtered({ status: 'done' }), ids(loginBug, loginCopy));
+      assert.deepEqual(await filtered({ status: 'TODO' }), ids(percent, underscore, plain));
+      assert.deepEqual(await filtered({ assigneeUserId: assignee }), ids(loginBug, percent));
+      assert.deepEqual(await filtered({ sprintId }), ids(loginBug, underscore));
+      assert.deepEqual(await filtered({ q: 'Login' }), ids(loginBug, loginCopy));
+      assert.deepEqual(await filtered({ q: '100%' }), ids(percent));
+      assert.deepEqual(await filtered({ q: '%' }), ids(percent));
+      assert.deepEqual(await filtered({ q: '_' }), ids(underscore));
+      assert.deepEqual(await filtered({ q: '\\' }), ids(backslash));
+      assert.deepEqual(await filtered({ q: 'no such text' }), []);
+      assert.deepEqual(
+        await filtered({ status: 'DONE', assigneeUserId: assignee, sprintId, q: 'login' }),
+        ids(loginBug),
+      );
+      assert.deepEqual(await filtered({ status: 'DONE', q: 'copy', sprintId }), []);
+
+      const limited = await application.listIssues(projectId, { limit: '4' }, requestContext);
+      assert.equal(limited.items.length, 4);
+      assert.ok(limited.nextCursor);
+      const lastPage = await application.listIssues(
+        projectId,
+        { limit: '4', cursor: limited.nextCursor },
+        requestContext,
+      );
+      assert.equal(lastPage.items.length, 2);
+      assert.equal(lastPage.nextCursor, null);
+      const exact = await application.listIssues(projectId, { limit: '6' }, requestContext);
+      assert.equal(exact.items.length, 6);
+      assert.equal(exact.nextCursor, null);
+      assert.equal((await application.listIssues(projectId, {}, requestContext)).nextCursor, null);
+    });
+
     await t.test('HTTP bodies and published Kafka envelopes match the shared contracts', async () => {
       await database.query('UPDATE outbox_events SET published_at = NOW() WHERE published_at IS NULL');
       const planningRepository = new PostgresPlanningRepository(database);
@@ -668,7 +792,8 @@ test(
         summary: 'Contract issue', description: 'Checked against issue.schema.json', type: 'story', priority: 'high',
         assigneeUserId, epicId: epic.id, sprintId: sprint.id,
       }, requestContext));
-      expectBody('issueList', await issues.listIssues(projectId, requestContext));
+      expectBody('issueList', await issues.listIssues(projectId, {}, requestContext));
+      expectBody('issueList', await issues.listIssues(projectId, { limit: '1', q: 'contract' }, requestContext));
       expectBody('issueResponse', await issues.getIssue(issue.id, requestContext));
       ({ issue } = expectBody('issueResponse', await issues.updateIssue(issue.id, { summary: 'Renamed', expectedVersion: issue.version }, requestContext)));
       ({ issue } = expectBody('issueResponse', await issues.assignIssue(issue.id, { assigneeUserId: null, expectedVersion: issue.version }, requestContext)));
@@ -1036,6 +1161,68 @@ async function assertTransitionState(
     history_count: expectedEffects.historyCount,
     outbox_count: expectedEffects.outboxCount,
   });
+}
+
+async function listAll(
+  application: IssueApplicationService,
+  projectId: string,
+  query: Record<string, string>,
+  cursor?: string | null,
+): Promise<string[]> {
+  const ids: string[] = [];
+  let next = cursor;
+  do {
+    const page = await application.listIssues(
+      projectId,
+      next ? { ...query, cursor: next } : query,
+      requestContext,
+    );
+    ids.push(...page.items.map((issue) => issue.id));
+    next = page.nextCursor;
+  } while (next);
+  return ids;
+}
+
+async function orderedIssueIds(database: Database, projectId: string): Promise<string[]> {
+  const result = await database.query<{ id: string }>(
+    'SELECT id FROM issues WHERE project_id = $1 ORDER BY created_at DESC, id DESC',
+    [projectId],
+  );
+  return result.rows.map((row) => row.id);
+}
+
+async function insertIssueRow(
+  database: Database,
+  projectId: string,
+  number: number,
+  values: {
+    createdAt?: string;
+    summary?: string;
+    status?: string;
+    assigneeUserId?: string;
+    sprintId?: string;
+  },
+): Promise<string> {
+  const id = randomUUID();
+  await database.query(
+    `INSERT INTO issues (
+       id, project_id, issue_number, issue_key, summary, type, priority, status,
+       reporter_user_id, assignee_user_id, sprint_id, version, created_at, updated_at
+     ) VALUES ($1,$2,$3,$4,$5,'TASK','LOW',$6,$7,$8,$9,1,$10::timestamptz,$10::timestamptz)`,
+    [
+      id,
+      projectId,
+      number,
+      `LIST-${number}`,
+      values.summary ?? `Listed issue ${number}`,
+      values.status ?? 'TODO',
+      reporterUserId,
+      values.assigneeUserId ?? null,
+      values.sprintId ?? null,
+      values.createdAt ?? new Date().toISOString(),
+    ],
+  );
+  return id;
 }
 
 function newIssue(projectId: string, summary: string): NewIssueData {

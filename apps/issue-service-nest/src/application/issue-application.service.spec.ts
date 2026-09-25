@@ -92,7 +92,7 @@ function fakeRepository(current = issue()): FakeRepository {
       };
     },
     async listIssues() {
-      return [repository.current];
+      return { items: [repository.current], next: null };
     },
     async findIssue() {
       return repository.current;
@@ -539,7 +539,7 @@ test('allows issue creation and reads for OWNER, ADMIN, and MEMBER while hiding 
     assert.equal(repository.creates[0].reporterUserId, userId);
     assert.equal(repository.creates[0].summary.length, 8);
     assert.equal(repository.creates[0].description?.length, 5000);
-    await assert.doesNotReject(application.listIssues(ids.project, actor));
+    await assert.doesNotReject(application.listIssues(ids.project, {}, actor));
     await assert.doesNotReject(application.getIssue(ids.issue, actor));
   }
 
@@ -664,7 +664,7 @@ test('allows comments on DONE issues while active and keeps archived comments an
 
 test('keeps archived issues readable while blocking real Issue Core writes', async () => {
   const { application, repository } = service(fakeRepository(), 'ARCHIVED');
-  await assert.doesNotReject(application.listIssues(ids.project, context));
+  await assert.doesNotReject(application.listIssues(ids.project, {}, context));
   await assert.doesNotReject(application.getIssue(ids.issue, context));
 
   for (const invoke of [

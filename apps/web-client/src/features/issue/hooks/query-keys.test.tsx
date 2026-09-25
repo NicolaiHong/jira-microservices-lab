@@ -22,3 +22,19 @@ it("keeps detail and project list caches isolated even when their UUIDs match", 
   expect(api.getIssue).toHaveBeenCalledTimes(1);
   expect(api.listIssues).toHaveBeenCalledTimes(2);
 });
+
+it("caches each filtered list separately and refreshes them all with the project list key", async () => {
+  api.listIssues.mockReset();
+  api.listIssues.mockResolvedValue([]);
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
+  const wrapper = ({ children }: PropsWithChildren) => <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+  const { result } = renderHook(
+    () => ({ all: useIssues("project-1"), sprint: useIssues("project-1", { sprintId: "sprint-1" }) }),
+    { wrapper },
+  );
+  await waitFor(() => expect(result.current.all.isSuccess && result.current.sprint.isSuccess).toBe(true));
+  expect(api.listIssues).toHaveBeenCalledWith("project-1", {});
+  expect(api.listIssues).toHaveBeenCalledWith("project-1", { sprintId: "sprint-1" });
+  await act(() => client.invalidateQueries({ queryKey: ["issues", "list", "project-1"] }));
+  expect(api.listIssues).toHaveBeenCalledTimes(4);
+});

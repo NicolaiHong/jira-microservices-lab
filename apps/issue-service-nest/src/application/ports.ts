@@ -2,6 +2,7 @@ import type {
   Issue,
   IssueComment,
   IssueHistory,
+  IssueStatus,
   ValidatedIssueTransition,
 } from '../domain/issue';
 import type { Epic, Sprint } from '../domain/planning';
@@ -57,9 +58,32 @@ export interface OutboxEvent {
   payload: Record<string, unknown>;
 }
 
+export interface IssueListFilter {
+  status?: IssueStatus;
+  assigneeUserId?: string;
+  sprintId?: string;
+  q?: string;
+}
+
+/** Keyset position of the last listed issue; `createdAt` keeps microseconds. */
+export interface IssueListPosition {
+  createdAt: string;
+  id: string;
+}
+
+export interface IssueListPage {
+  items: Issue[];
+  next: IssueListPosition | null;
+}
+
 export interface IssueRepository {
   createIssue(data: NewIssueData): Promise<Issue>;
-  listIssues(projectId: string): Promise<Issue[]>;
+  listIssues(
+    projectId: string,
+    filter: IssueListFilter,
+    after: IssueListPosition | null,
+    limit: number,
+  ): Promise<IssueListPage>;
   findIssue(issueId: string): Promise<Issue | null>;
   updateIssue(
     issue: Issue,

@@ -11,13 +11,14 @@ import {
   listIssues,
   listSprints,
   transitionIssue,
+  type IssueListFilters,
 } from "../api";
 import type { CreateEpicPayload, CreateIssuePayload, CreateSprintPayload, IssueStatus } from "../types";
 
-export function useIssues(projectId?: string) {
+export function useIssues(projectId?: string, filters: IssueListFilters = {}) {
   return useQuery({
-    queryKey: ["issues", "list", projectId],
-    queryFn: () => listIssues(projectId as string),
+    queryKey: ["issues", "list", projectId, filters],
+    queryFn: () => listIssues(projectId as string, filters),
     enabled: Boolean(projectId),
   });
 }
