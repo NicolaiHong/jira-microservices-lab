@@ -62,33 +62,36 @@ service reads another service's database.
 
 ## Run locally
 
-Prerequisites: Docker Desktop with Compose v2, Node.js for the web client, and
-an `INTERNAL_SERVICE_SECRET` value for local service-to-service calls, and a
-`JWT_SECRET` of at least 32 bytes for signing access tokens.
+Prerequisites: Docker Desktop with Compose v2, an `INTERNAL_SERVICE_SECRET`
+value for local service-to-service calls, and a `JWT_SECRET` of at least 32
+bytes for signing access tokens.
 
 ```powershell
 cd infra/docker-compose
 Copy-Item .env.example .env
 # Set INTERNAL_SERVICE_SECRET and JWT_SECRET (>= 32 bytes) in .env
-docker compose up --build
+docker compose up --build --wait
 ```
 
-Verify the stack through the Gateway:
+This starts every service, including the web client. Verify the stack through
+the Gateway:
 
 ```powershell
 Invoke-WebRequest http://localhost:3000/health/services
 ```
 
-Start the web client in a second terminal:
+Open `http://localhost:3001/register`, create an account, then create a
+workspace, project, and issue.
+
+For frontend work with hot reload (needs Node.js), stop the container and run
+the dev server on the same port:
 
 ```powershell
-cd apps/web-client
+docker compose stop web-client
+cd ../../apps/web-client
 npm ci
 npx next dev -H 0.0.0.0 -p 3001
 ```
-
-Open `http://localhost:3001/register`, create an account, then create a
-workspace, project, and issue.
 
 ## Repository layout
 

@@ -99,6 +99,28 @@ services:
       start_interval: 2s
     restart: unless-stopped
 
+  web-client:
+    build:
+      context: ../../apps/web-client
+      args:
+        # Baked into the browser bundle at build time. The browser runs on the host,
+        # so this is the host-published Gateway URL, not a Compose service name.
+        NEXT_PUBLIC_API_GATEWAY_URL: ${NEXT_PUBLIC_API_GATEWAY_URL:-http://localhost:${API_GATEWAY_PORT:-3000}}
+    container_name: web-client
+    ports:
+      # CORS_ALLOWED_ORIGINS must list this origin (http://localhost:3001).
+      - "3001:3001"
+    depends_on:
+      api-gateway:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:3001/login"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      start_interval: 2s
+    restart: unless-stopped
+
   iam-service:
     build:
       context: ../../apps/iam-service-java

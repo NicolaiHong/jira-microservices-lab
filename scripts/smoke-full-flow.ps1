@@ -1,5 +1,6 @@
 param(
-    [string]$GatewayUrl = "http://localhost:3000"
+    [string]$GatewayUrl = "http://localhost:3000",
+    [string]$WebUrl = "http://localhost:3001"
 )
 
 $ErrorActionPreference = "Stop"
@@ -57,43 +58,47 @@ function Invoke-Gateway {
 }
 
 try {
-Write-Host "1/10 Register owner and member"
+Write-Host "1/11 Web client serves /login"
+$login = Invoke-WebRequest -Uri "$WebUrl/login" -UseBasicParsing -MaximumRedirection 0 -TimeoutSec 15
+if ($login.StatusCode -ne 200) { throw "Web client GET /login returned $($login.StatusCode)" }
+
+Write-Host "2/11 Register owner and member"
 $owner = Invoke-Gateway POST "/api/auth/register" @{ email = $ownerEmail; password = $password } ""
 $member = Invoke-Gateway POST "/api/auth/register" @{ email = $memberEmail; password = $password } ""
 
-Write-Host "2/10 Login both users"
+Write-Host "3/11 Login both users"
 $ownerJar = New-SmokeTempFile
 $memberJar = New-SmokeTempFile
 $ownerSession = Invoke-Gateway POST "/api/auth/login" @{ email = $ownerEmail; password = $password } "" $ownerJar
 $memberSession = Invoke-Gateway POST "/api/auth/login" @{ email = $memberEmail; password = $password } "" $memberJar
 
-Write-Host "3/10 Create workspace"
+Write-Host "4/11 Create workspace"
 $workspaceResult = Invoke-Gateway POST "/api/workspaces" @{ name = "Smoke Workspace $suffix"; slug = "smoke-$suffix" } $ownerSession.accessToken
 $workspaceId = $workspaceResult.workspace.id
 
-Write-Host "4/10 Add member by email and list members"
+Write-Host "5/11 Add member by email and list members"
 Invoke-Gateway POST "/api/workspaces/$workspaceId/members" @{ email = $memberEmail; role = "MEMBER" } $ownerSession.accessToken | Out-Null
 $members = Invoke-Gateway GET "/api/workspaces/$workspaceId/members" $null $memberSession.accessToken
 $listedMember = $members.items | Where-Object { $_.userId -eq $member.user.id }
 if ($listedMember.email -ne $memberEmail) { throw "Workspace members did not resolve the member email through IAM" }
 
-Write-Host "5/10 Create project"
+Write-Host "6/11 Create project"
 $projectResult = Invoke-Gateway POST "/api/workspaces/$workspaceId/projects" @{ name = "Smoke Project $suffix"; key = $projectKey; description = "Full system smoke" } $ownerSession.accessToken
 $projectId = $projectResult.project.id
 
-Write-Host "6/10 Create assigned issue"
+Write-Host "7/11 Create assigned issue"
 $issueResult = Invoke-Gateway POST "/api/projects/$projectId/issues" @{ summary = "Trace the full event flow"; type = "TASK"; priority = "HIGH"; assigneeUserId = $member.user.id } $ownerSession.accessToken
 $issueId = $issueResult.issue.id
 
-Write-Host "7/10 Transition and comment"
+Write-Host "8/11 Transition and comment"
 Invoke-Gateway POST "/api/issues/$issueId/transitions" @{ status = "IN_PROGRESS"; expectedVersion = $issueResult.issue.version } $ownerSession.accessToken | Out-Null
 Invoke-Gateway POST "/api/issues/$issueId/comments" @{ body = "Member received the task." } $memberSession.accessToken | Out-Null
 
-Write-Host "8/10 Verify history"
+Write-Host "9/11 Verify history"
 $history = Invoke-Gateway GET "/api/issues/$issueId/history" $null $ownerSession.accessToken
 if ($history.items.Count -lt 3) { throw "Expected at least 3 history entries" }
 
-Write-Host "9/10 Wait for Kafka notification"
+Write-Host "10/11 Wait for Kafka notification"
 $transitioned = $null
 for ($attempt = 0; $attempt -lt 30 -and -not $transitioned; $attempt++) {
     Start-Sleep -Seconds 2
@@ -102,7 +107,7 @@ for ($attempt = 0; $attempt -lt 30 -and -not $transitioned; $attempt++) {
 }
 if (-not $transitioned) { throw "No issue.transitioned notification arrived through Kafka" }
 
-Write-Host "10/10 Mark notification read and rotate session"
+Write-Host "11/11 Mark notification read and rotate session"
 Invoke-Gateway PATCH "/api/notifications/$($transitioned.id)/read" $null $memberSession.accessToken | Out-Null
 $rotated = Invoke-Gateway POST "/api/auth/refresh" $null "" $ownerJar
 if (-not $rotated.accessToken) { throw "Refresh token rotation failed" }
