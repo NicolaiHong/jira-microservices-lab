@@ -11,4 +11,6 @@ Run and observe the local stack.
 5. Run focused service builds: Nest `npm run build`, IAM `mvn package -Dmaven.test.skip=true`, Project `dotnet build ProjectService.csproj`, Notification `go build ./...`.
 6. Use `scripts/smoke-full-flow.ps1` or `.sh` for the documented full-flow smoke path. It checks that the web client serves `/login`, then runs the API flow through the gateway. The bash script needs `curl` and `jq`. Each run registers two users, and the gateway allows five registrations per IP every 10 minutes. To rerun sooner, delete the counters: `docker exec local-redis sh -c 'redis-cli --scan --pattern "rate:auth:register:*" | xargs -r redis-cli del'`.
 
-Use `x-correlation-id` to trace a request. Never place access tokens, refresh tokens, passwords, or the internal secret in logs or committed environment files.
+7. Open Jaeger at `http://localhost:16686` to follow a request across services ([ADR 0006](../decisions/0006-distributed-tracing.md)). Pick the service `api-gateway` and an operation such as `POST /api/issues/:issueId/transitions`, or search by the tag `app.correlation_id=<x-correlation-id>`. An issue transition spans Gateway, Issue, Project and Notification; IAM appears in sign-in, registration and member traces. Traces live in memory until the `local-jaeger` container restarts. To turn tracing off, set `OTEL_EXPORTER_OTLP_ENDPOINT=` (empty) in `.env`.
+
+Use `x-correlation-id` to find a request's log lines and its trace. Never place access tokens, refresh tokens, passwords, or the internal secret in logs or committed environment files.

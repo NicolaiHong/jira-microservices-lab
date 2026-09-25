@@ -16,3 +16,5 @@
 - Issue events are ordered per Issue only, and each Issue advances at most one event per two-second publisher poll.
 - The Board offers button-based legal status moves only. Drag-and-drop status movement is intentionally not implemented.
 - All services share one `INTERNAL_SERVICE_SECRET`. Project, Issue and Notification Services trust `x-authenticated-user-id` on any request that carries that secret, so a compromised service can call another service as any user. There are no per-service credentials or mTLS.
+- Tracing is for local development only. Jaeger keeps traces in memory until its container restarts, every span is sampled, and there is no retention policy, authentication or TLS towards the trace backend ([ADR 0006](../decisions/0006-distributed-tracing.md)).
+- The trace of an Issue command stays open until Notification processes its event, and its duration includes the outbox wait; an abandoned event never adds its Kafka part. Notification's HTTP API, Redis commands and IAM database queries produce no spans.
