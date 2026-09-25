@@ -18,7 +18,7 @@ Issue Service owns epics/sprints and validates issue links.
 
 ## UI
 
-Backlog reads planning records; roadmap creates epics.
+Backlog reads planning records, starts a sprint when none is active, and completes the active sprint; roadmap creates epics.
 
 ## State
 
@@ -50,7 +50,7 @@ No dedicated automated test verified.
 
 ## Known Limitations
 
-No sprint-management UI or issue move behaviour upon completion.
+No sprint edit or reopen; completing a sprint does not move its unfinished issues.
 
 ## Open Questions
 

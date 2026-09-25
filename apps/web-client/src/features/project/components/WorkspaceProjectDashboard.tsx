@@ -123,7 +123,7 @@ export function WorkspaceProjectDashboard() {
         ) : projects.isError ? (
           <QueryError resource="projects" queries={[projects]} />
         ) : (
-          <ProjectList projects={projects.data ?? []} />
+          <ProjectList canManage={canManageProjects} projects={projects.data ?? []} />
         )}
         {activeWorkspace ? (
           <WorkspaceMembers actorRole={activeWorkspace.role} key={activeWorkspace.id} workspaceId={activeWorkspace.id} />

@@ -30,6 +30,12 @@ export interface CreateProjectPayload {
   description?: string;
 }
 
+/** Presence-aware: omitted fields are kept; `description: null` clears it. */
+export interface UpdateProjectPayload {
+  name?: string;
+  description?: string | null;
+}
+
 export interface ListResponse<T> {
   items: T[];
 }

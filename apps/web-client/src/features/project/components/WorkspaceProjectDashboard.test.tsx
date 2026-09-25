@@ -1,4 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { AxiosError, type AxiosResponse } from "axios";
 import {
   cleanup,
   fireEvent,
@@ -9,20 +10,24 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  archiveProject,
   createProject,
   createWorkspace,
   listProjects,
   listWorkspaceMembers,
   listWorkspaces,
+  updateProject,
 } from "../api";
 import { WorkspaceProjectDashboard } from "./WorkspaceProjectDashboard";
 
 vi.mock("../api", () => ({
+  archiveProject: vi.fn(),
   createProject: vi.fn(),
   createWorkspace: vi.fn(),
   listProjects: vi.fn(),
   listWorkspaceMembers: vi.fn(),
   listWorkspaces: vi.fn(),
+  updateProject: vi.fn(),
 }));
 
 vi.mock("sonner", () => ({
@@ -38,6 +43,18 @@ const existingWorkspace = {
   slug: "platform",
   role: "OWNER" as const,
   createdAt: "2026-08-24T00:00:00.000Z",
+};
+
+const activeProject = {
+  id: "project-1",
+  workspaceId: existingWorkspace.id,
+  name: "Payments",
+  key: "PAY",
+  description: "Card payments",
+  status: "ACTIVE" as const,
+  createdByUserId: "user-1",
+  createdAt: "2026-08-24T00:00:00.000Z",
+  updatedAt: "2026-08-24T00:00:00.000Z",
 };
 
 const listWorkspacesMock = vi.mocked(listWorkspaces);
@@ -211,5 +228,91 @@ describe("WorkspaceProjectDashboard", () => {
       const { toast } = await import("sonner");
       expect(toast.error).toHaveBeenCalledWith("Could not create project");
     });
+  });
+
+  it("hides project edit and archive controls from a member", async () => {
+    listWorkspacesMock.mockResolvedValue([{ ...existingWorkspace, role: "MEMBER" }]);
+    listProjectsMock.mockResolvedValue([activeProject]);
+
+    renderDashboard();
+
+    expect(await screen.findByRole("link", { name: "Payments" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Edit Payments" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Archive Payments" })).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ["renames", "Payments v2", "Card payments", { name: "Payments v2" }],
+    ["clears the description of", "Payments", "  ", { description: null }],
+  ])("sends only the changed field when an owner %s a project", async (_, name, description, expected) => {
+    listWorkspacesMock.mockResolvedValue([existingWorkspace]);
+    listProjectsMock.mockResolvedValue([activeProject]);
+    vi.mocked(updateProject).mockResolvedValue(activeProject);
+
+    renderDashboard();
+    fireEvent.click(await screen.findByRole("button", { name: "Edit Payments" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Edit project name" }), {
+      target: { value: name },
+    });
+    fireEvent.change(screen.getByRole("textbox", { name: "Edit project description" }), {
+      target: { value: description },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(updateProject).toHaveBeenCalledWith("project-1", expected));
+    await waitFor(() =>
+      expect(screen.queryByRole("textbox", { name: "Edit project name" })).not.toBeInTheDocument(),
+    );
+  });
+
+  it("archives only after confirmation, then shows the project as archived and read-only", async () => {
+    const confirm = vi.spyOn(window, "confirm");
+    listWorkspacesMock.mockResolvedValue([existingWorkspace]);
+    listProjectsMock
+      .mockResolvedValueOnce([activeProject])
+      .mockResolvedValue([{ ...activeProject, status: "ARCHIVED" }]);
+    vi.mocked(archiveProject).mockResolvedValue();
+
+    renderDashboard();
+    const archiveButton = await screen.findByRole("button", { name: "Archive Payments" });
+    confirm.mockReturnValueOnce(false);
+    fireEvent.click(archiveButton);
+    expect(confirm).toHaveBeenCalledWith(expect.stringContaining("cannot be undone"));
+    expect(archiveProject).not.toHaveBeenCalled();
+
+    confirm.mockReturnValueOnce(true);
+    fireEvent.click(archiveButton);
+
+    await waitFor(() => expect(archiveProject).toHaveBeenCalledWith("project-1"));
+    expect(await screen.findByText("Archived")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Edit Payments" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Archive Payments" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Payments" })).toHaveAttribute(
+      "href",
+      "/projects/project-1/board",
+    );
+    confirm.mockRestore();
+  });
+
+  it("shows a 409 PROJECT_ARCHIVED rejection without retrying", async () => {
+    listWorkspacesMock.mockResolvedValue([existingWorkspace]);
+    listProjectsMock.mockResolvedValue([activeProject]);
+    vi.mocked(updateProject).mockRejectedValue(
+      new AxiosError("failed", "ERR_BAD_REQUEST", undefined, undefined, {
+        status: 409,
+        data: { code: "PROJECT_ARCHIVED", message: "Project is archived" },
+      } as AxiosResponse),
+    );
+
+    renderDashboard();
+    fireEvent.click(await screen.findByRole("button", { name: "Edit Payments" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Edit project name" }), {
+      target: { value: "Renamed" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    const { toast } = await import("sonner");
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith("Project is archived"));
+    expect(updateProject).toHaveBeenCalledTimes(1);
   });
 });

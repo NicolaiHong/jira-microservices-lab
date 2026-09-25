@@ -55,7 +55,7 @@ All workspace memberships can perform verified planning actions on an active vis
 
 ## UI Entry Points
 
-Backlog reads epics/sprints; roadmap creates epics; **OPEN QUESTION:** no verified sprint-management screen is present.
+Backlog (`/projects/{projectId}/backlog`) shows the active sprint's issues (all project issues when no sprint is active) and an epic panel, starts a sprint (name, optional goal and dates) when none is active, and completes the active sprint; its sprint controls are hidden for an archived project. Roadmap creates epics.
 
 ## Validation
 

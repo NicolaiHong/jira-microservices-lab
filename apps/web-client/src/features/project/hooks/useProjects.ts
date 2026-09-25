@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   addWorkspaceMember,
+  archiveProject,
   changeWorkspaceMemberRole,
   createProject,
   createWorkspace,
@@ -11,11 +12,14 @@ import {
   listWorkspaceMembers,
   listWorkspaces,
   removeWorkspaceMember,
+  updateProject,
 } from "../api";
 import type {
   AddWorkspaceMemberPayload,
   CreateProjectPayload,
   CreateWorkspacePayload,
+  Project,
+  UpdateProjectPayload,
   WorkspaceRole,
 } from "../types";
 
@@ -55,6 +59,26 @@ export function useCreateProject(workspaceId?: string) {
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: ["projects", workspaceId] }),
   });
+}
+
+export function useManageProject(project: Pick<Project, "id" | "workspaceId">) {
+  const queryClient = useQueryClient();
+  // Settled, not only success: a 409 PROJECT_ARCHIVED also means the cached status is stale.
+  const onSettled = () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["projects", project.workspaceId] }),
+      queryClient.invalidateQueries({ queryKey: ["project", project.id] }),
+    ]);
+  return {
+    update: useMutation({
+      mutationFn: (payload: UpdateProjectPayload) => updateProject(project.id, payload),
+      onSettled,
+    }),
+    archive: useMutation({
+      mutationFn: () => archiveProject(project.id),
+      onSettled,
+    }),
+  };
 }
 
 export function useWorkspaceMembers(workspaceId?: string) {
