@@ -10,6 +10,7 @@ public static class ProjectRequestLoggingMiddleware
         return app.Use(async (context, next) =>
         {
             var correlationId = CorrelationId.GetOrCreate(context);
+            Activity.Current?.SetTag("app.correlation_id", correlationId);
             var logger = context.RequestServices
                 .GetRequiredService<ILoggerFactory>()
                 .CreateLogger("ProjectService.HttpRequest");
