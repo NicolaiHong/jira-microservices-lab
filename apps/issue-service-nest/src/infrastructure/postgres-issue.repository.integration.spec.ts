@@ -3,6 +3,9 @@ import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import test from 'node:test';
+import { context, propagation, ROOT_CONTEXT } from '@opentelemetry/api';
+import { W3CTraceContextPropagator } from '@opentelemetry/core';
+import { node } from '@opentelemetry/sdk-node';
 import { Pool } from 'pg';
 import { IssueApplicationService } from '../application/issue-application.service';
 import { PlanningApplicationService } from '../application/planning-application.service';
@@ -642,6 +645,24 @@ test(
         (await repository.claimPendingEvents(50)).map((event) => event.eventId),
         [v2],
       );
+    });
+
+    await t.test('stores the trace context of the writing request with its outbox event', async () => {
+      new node.NodeTracerProvider().register({ propagator: new W3CTraceContextPropagator() });
+      await database.query('UPDATE outbox_events SET published_at = NOW() WHERE published_at IS NULL');
+      const traceparent = '00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01';
+      const traced = await context.with(
+        propagation.extract(ROOT_CONTEXT, { traceparent }),
+        () => repository.createIssue(newIssue(randomUUID(), 'Traced')),
+      );
+      const untraced = await repository.createIssue(newIssue(randomUUID(), 'Untraced'));
+
+      const claimed = await repository.claimPendingEvents(50);
+      const traceContextOf = (issueId: string) =>
+        claimed.find((event) => event.aggregateId === issueId)?.traceContext;
+      assert.equal(claimed.length, 2);
+      assert.deepEqual(traceContextOf(traced.id), { traceparent });
+      assert.equal(traceContextOf(untraced.id), null);
     });
 
     await t.test('creates the issue list indexes idempotently', async () => {

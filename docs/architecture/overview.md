@@ -24,4 +24,4 @@ flowchart LR
   Notification -.->|failed events| DLQ[issue.events.v1.dlq.v1]
 ```
 
-The browser calls the gateway only. Draw.io source and rendered images of this topology and the event flow live in [`diagrams/`](../../diagrams/); see [diagrams](../diagrams/README.md). Each service owns its persistence; local Docker Compose does not make databases shared domain stores. See [module boundaries](module-boundaries.md) and [data overview](../data/database-overview.md).
+The browser calls the gateway only. In Compose every backend service also exports traces to a Jaeger container ([observability](backend-architecture.md#observability)). Draw.io source and rendered images of this topology and the event flow live in [`diagrams/`](../../diagrams/); see [diagrams](../diagrams/README.md). Each service owns its persistence; local Docker Compose does not make databases shared domain stores. See [module boundaries](module-boundaries.md) and [data overview](../data/database-overview.md).

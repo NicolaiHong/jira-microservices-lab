@@ -18,6 +18,8 @@ The CI `e2e-compose` job builds and starts the Compose stack, runs `scripts/smok
 
 The PostgreSQL lifecycle suite must use `ISSUE_SERVICE_TEST_DATABASE_URL` for the dedicated disposable `issue_test_db` only. It refuses to reset `issue_db`. CI runs the suite against that test database and verifies same-version transition concurrency, failure rollback, and issue list filters, limits, and cursor stability while issues are created between pages; it is not an optional release gate.
 
+Tracing tests ([ADR 0006](../decisions/0006-distributed-tracing.md)) need no Jaeger. `outbox.publisher.spec.ts` checks that the kafkajs instrumentation writes the traceparent of the request that wrote an event into its Kafka record, and the PostgreSQL suite checks that an outbox row stores and returns that trace context. The Go consumer tests inject and extract `traceparent` through the kafka-go header carrier and check that the processing span continues the producer's trace. IAM tests cover the OTLP endpoint mapping and the correlation-ID span attribute.
+
 ## Contract tests
 
 The JSON Schemas (draft 2020-12) in `contracts/` state the documented cross-service contracts. Consumer and provider tests validate against the same files, so a changed response or event shape fails CI on the side that changed.

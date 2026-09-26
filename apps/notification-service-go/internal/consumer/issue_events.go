@@ -13,6 +13,8 @@ import (
 	"github.com/example/jira-like-polyglot-microservices/notification-service/internal/projectaccess"
 	"github.com/example/jira-like-polyglot-microservices/notification-service/internal/store"
 	"github.com/segmentio/kafka-go"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 const (
@@ -141,7 +143,7 @@ func (c *IssueEventConsumer) Run(ctx context.Context) {
 
 		switch pending.stage {
 		case processPending:
-			err := c.handle(ctx, pending.message.Value)
+			err := c.process(ctx, pending.message)
 			if err == nil {
 				pending.stage = commitPending
 				continue
@@ -204,6 +206,8 @@ func (c *IssueEventConsumer) handle(ctx context.Context, raw []byte) error {
 	if err := validateEvent(event); err != nil {
 		return permanentError{err}
 	}
+	// The event ID is the correlation ID sent to Project Service.
+	trace.SpanFromContext(ctx).SetAttributes(attribute.String("app.correlation_id", event.EventID))
 	if c.accessChecker == nil {
 		return errors.New("project access checker is unavailable")
 	}

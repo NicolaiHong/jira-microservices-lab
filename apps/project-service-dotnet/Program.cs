@@ -1,5 +1,7 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using OpenTelemetry.Exporter;
+using OpenTelemetry.Trace;
 using ProjectService.Api;
 using ProjectService.Application;
 using ProjectService.Application.UseCases;
@@ -23,6 +25,17 @@ if (string.IsNullOrWhiteSpace(databaseUrl))
 
 var internalServiceSecret = builder.Configuration["INTERNAL_SERVICE_SECRET"]
     ?? throw new InvalidOperationException("INTERNAL_SERVICE_SECRET is required.");
+
+// Tracing (ADR 0006) is off without an OTLP endpoint. Npgsql emits spans from
+// its built-in "Npgsql" activity source; no instrumentation captures headers.
+if (!string.IsNullOrWhiteSpace(builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"]))
+{
+    builder.Services.AddOpenTelemetry().WithTracing(tracing => tracing
+        .AddAspNetCoreInstrumentation()
+        .AddHttpClientInstrumentation()
+        .AddSource("Npgsql")
+        .AddOtlpExporter(options => options.Protocol = OtlpExportProtocol.HttpProtobuf));
+}
 
 builder.Services.AddDbContext<ProjectDbContext>(options =>
     options.UseNpgsql(databaseUrl));
